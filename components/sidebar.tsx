@@ -15,7 +15,8 @@ import {
   ChevronLeft,
   Map,
   BarChart2,
-  LogOut, // 👈 new icon
+  LogOut,
+  Presentation, // 👈 new icon
 } from "lucide-react";
 
 type Profile = {
@@ -133,9 +134,14 @@ function SidebarComponent() {
           label={open ? "Dashboard" : ""}
         />
         <NavLink
-          href="/network"
-          icon={<Map className="h-4 w-4" />}
-          label={open ? "Network" : ""}
+            href="/network"
+            icon={<Map className="h-4 w-4" />}
+            label={open ? "Network" : ""}
+          />
+        <NavLink
+          href="/presentationmode"
+          icon={<Presentation className="h-4 w-4" />} 
+          label={open ? "Presenter Mode" : ""}
         />
         <NavLink
           href="/reports"

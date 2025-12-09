@@ -1,6 +1,6 @@
 /* --- ./app/globals.css (FINAL CORRECTED VERSION) --- */
 @import "tailwindcss";
-
+@import "leaflet/dist/leaflet.css";
 /* Define Custom Color Variables */
 :root {
   /* Light Theme */
