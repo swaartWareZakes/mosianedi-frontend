@@ -1,9 +1,9 @@
-// app/(app)/network/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic"; // 👈 Import dynamic
 import { supabase } from "@/lib/supabaseClient";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Cuboid } from "lucide-react";
 
 import { useNetworkSnapshot } from "../projects/[projectId]/config/hooks/useNetworkSnapshot";
 import type { NetworkSnapshotUi } from "../projects/[projectId]/config/hooks/useNetworkSnapshot";
@@ -11,6 +11,19 @@ import type { NetworkSnapshotUi } from "../projects/[projectId]/config/hooks/use
 import { NetworkProjectSelector } from "./components/NetworkProjectSelector";
 import { NetworkSnapshotSummary } from "./components/NetworkSnapshotSummary";
 import { NetworkBreakdowns } from "./components/NetworkBreakdowns";
+
+// 1. Dynamic Import for the 3D Component (No SSR)
+const RoadModel3D = dynamic(
+  () => import("./components/RealModel3D"), 
+  { 
+    ssr: false, 
+    loading: () => (
+      <div className="h-[500px] w-full bg-slate-950 rounded-2xl flex items-center justify-center text-slate-500 border border-slate-800">
+        Initializing 3D Engine...
+      </div>
+    ) 
+  }
+);
 
 // const API_BASE = "http://127.0.0.1:8000";
 const API_BASE = `${process.env.NEXT_PUBLIC_API_URL}`;
@@ -29,6 +42,10 @@ export default function NetworkPage() {
   const [projectsLoading, setProjectsLoading] = useState(false);
   const [projectsError, setProjectsError] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+
+  // --- 3D State ---
+  const [roadWidth, setRoadWidth] = useState(8);
+  const [roadIRI, setRoadIRI] = useState(2.5);
 
   // --- Fetch projects -------------------------------------------------------
   useEffect(() => {
@@ -95,7 +112,7 @@ export default function NetworkPage() {
     snapshot?.totalNetworkLengthKm ?? snapshot?.totalLengthKm ?? 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20">
       {/* Header -------------------------------------------------------------- */}
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Network</h1>
@@ -120,24 +137,100 @@ export default function NetworkPage() {
 
       {/* Snapshot + breakdowns ---------------------------------------------- */}
       {selectedProjectId ? (
-        <section className="grid gap-6 xl:grid-cols-[1.4fr,1.2fr]">
-          {/* Left column */}
-          <div className="space-y-4">
-            <NetworkSnapshotSummary
-              snapshot={snapshot as NetworkSnapshotUi | null}
-              loading={snapshotLoading}
-              error={snapshotError}
-            />
-          </div>
+        <>
+          <section className="grid gap-6 xl:grid-cols-[1.4fr,1.2fr]">
+            {/* Left column */}
+            <div className="space-y-4">
+              <NetworkSnapshotSummary
+                snapshot={snapshot as NetworkSnapshotUi | null}
+                loading={snapshotLoading}
+                error={snapshotError}
+              />
+            </div>
 
-          {/* Right column */}
-          <div className="space-y-4">
-            <NetworkBreakdowns
-              snapshot={snapshot as NetworkSnapshotUi | null}
-              totalLengthForRatios={totalLengthForRatios}
-            />
-          </div>
-        </section>
+            {/* Right column */}
+            <div className="space-y-4">
+              <NetworkBreakdowns
+                snapshot={snapshot as NetworkSnapshotUi | null}
+                totalLengthForRatios={totalLengthForRatios}
+              />
+            </div>
+          </section>
+
+          {/* 3D Digital Twin Section ----------------------------------------- */}
+          <section className="mt-8 border-t border-slate-200/50 dark:border-slate-800/50 pt-8">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Cuboid className="h-5 w-5 text-indigo-500" />
+              Digital Twin Inspector
+            </h2>
+            <p className="text-sm text-slate-500 mb-6 max-w-3xl">
+              Visualize road cross-sections and deterioration mechanics. 
+              Adjust the parameters below to see how geometry and condition (IRI) 
+              affect the physical model of the asset.
+            </p>
+
+            <div className="grid grid-cols-1 xl:grid-cols-[2fr,1fr] gap-6">
+              
+              {/* 1. The 3D Stage */}
+              <RoadModel3D width={roadWidth} length={35} iri={roadIRI} />
+
+              {/* 2. The Engineer's Console */}
+              <div className="bg-[var(--surface-bg)] p-6 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 shadow-sm space-y-8 h-fit">
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
+                    <h3 className="font-semibold text-sm uppercase tracking-wide text-slate-500">Parameters</h3>
+                    <span className="text-xs bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-2 py-1 rounded">Interactive</span>
+                  </div>
+                  
+                  {/* Lane Width Control */}
+                  <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <label className="text-sm font-medium">Carriageway Width</label>
+                        <span className="font-mono text-sm bg-slate-100 dark:bg-slate-900 px-2 py-0.5 rounded">{roadWidth}m</span>
+                      </div>
+                      <input 
+                          type="range" min={4} max={20} step={0.5} 
+                          value={roadWidth} 
+                          onChange={(e) => setRoadWidth(Number(e.target.value))}
+                          className="w-full accent-indigo-500 cursor-pointer"
+                      />
+                      <p className="text-[10px] text-slate-400">
+                        Adjusting width impacts volume calculations for resurfacing and base layers.
+                      </p>
+                  </div>
+
+                  {/* Condition Control */}
+                  <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <label className="text-sm font-medium">Roughness (IRI)</label>
+                        <span className={`font-mono text-sm px-2 py-0.5 rounded ${
+                          roadIRI < 3 ? 'bg-emerald-100 text-emerald-700' :
+                          roadIRI < 6 ? 'bg-amber-100 text-amber-700' :
+                          'bg-rose-100 text-rose-700'
+                        }`}>
+                          {roadIRI.toFixed(1)}
+                        </span>
+                      </div>
+                      <input 
+                          type="range" min={0} max={15} step={0.1} 
+                          value={roadIRI} 
+                          onChange={(e) => setRoadIRI(Number(e.target.value))}
+                          className={`w-full cursor-pointer ${
+                            roadIRI < 3 ? 'accent-emerald-500' : 
+                            roadIRI < 6 ? 'accent-amber-500' : 'accent-rose-500'
+                          }`}
+                      />
+                      <div className="flex justify-between text-[10px] text-slate-400">
+                        <span>New (0)</span>
+                        <span>Terminal (15)</span>
+                      </div>
+                      <p className="text-[10px] text-slate-400">
+                        Drag to simulate deterioration. Visual cues (color, roughness) update in real-time.
+                      </p>
+                  </div>
+              </div>
+            </div>
+          </section>
+        </>
       ) : (
         <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
           <AlertTriangle className="h-3 w-3" />
