@@ -1,21 +1,22 @@
-/* --- ./app/(app)/projects/ProjectCreateForm.tsx (FINAL VERSION) --- */
+/* --- app/(app)/projects/ProjectCreateForm.tsx --- */
 "use client";
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-// import { cn } from "@/lib/utils"; // Assuming this is imported if needed
 import { NewProject } from "@/types/project"; 
 import { supabase } from "@/lib/supabaseClient";
+import { API_BASE_URL } from "@/lib/config"; // <-- IMPORT THIS
 
-// const API_URL = "http://127.0.0.1:8000/api/v1/projects"; // Replace with process.env.NEXT_PUBLIC_API_URL in a full setup
-const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/projects`; // Replace with process.env.NEXT_PUBLIC_API_URL in a full setup
+// USE THE IMPORTED CONFIG
+const PROJECTS_ENDPOINT = `${API_BASE_URL}/api/v1/projects`; 
 const getCurrentYear = () => new Date().getFullYear();
 
-// FIX: Updated onClose signature to match parent component's requirement
 export function ProjectCreateForm({ onClose }: { onClose: (success: boolean) => void }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // State to handle redirect after modal closes
+  const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
 
   const [project, setProject] = useState<NewProject>({
     project_name: "",
@@ -44,9 +45,9 @@ export function ProjectCreateForm({ onClose }: { onClose: (success: boolean) => 
     setLoading(true);
 
     let success = false;
+    let newRedirectUrl: string | null = null;
 
     try {
-        // --- REAL API CALL ---
         const { data: { session } } = await supabase.auth.getSession(); 
         const token = session?.access_token;
 
@@ -54,11 +55,12 @@ export function ProjectCreateForm({ onClose }: { onClose: (success: boolean) => 
              throw new Error("User session expired or unauthorized.");
         }
         
-        const response = await fetch(API_URL, {
+        // USE THE CENTRALIZED ENDPOINT
+        const response = await fetch(PROJECTS_ENDPOINT, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}` // <-- JWT is sent here
+                'Authorization': `Bearer ${token}` 
             },
             body: JSON.stringify(project),
         });
@@ -66,28 +68,33 @@ export function ProjectCreateForm({ onClose }: { onClose: (success: boolean) => 
         const data = await response.json();
 
         if (!response.ok) {
-            // FastAPI returns error details in the response body
             throw new Error(data.message || `API error: ${response.status}`);
         }
 
-        // Success: Redirect and set success flag
+        // Success: Prepare redirect URL
         const newProjectId = data.project_id;
-        router.push(`/projects/${newProjectId}/config`); 
+        newRedirectUrl = `/projects/${newProjectId}/config`;
         success = true;
         
     } catch (err) {
         console.error("Project Creation Failed:", err);
         const msg = err instanceof Error ? err.message : 'Unknown error';
         setErrorMsg(`Failed to create project: ${msg}`);
-        success = false; // Set failure flag
+        success = false; 
+        newRedirectUrl = null;
     } finally {
         setLoading(false);
-        onClose(success); // Close modal and signal success/failure status
+        setRedirectUrl(newRedirectUrl);
+        onClose(success); // Signal parent to close modal and refresh list
+        
+        // Perform redirect ensuring state updates don't conflict with unmounting
+        if (success && newRedirectUrl) {
+             router.push(newRedirectUrl);
+        }
     }
   };
 
   return (
-    // ... (rest of the form rendering code remains the same)
     <div className="bg-[var(--surface-bg)] rounded-2xl p-6 shadow-xl">
         <h2 className="text-xl font-semibold text-[var(--foreground)] mb-2">Create New Project Scenario</h2>
         <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">

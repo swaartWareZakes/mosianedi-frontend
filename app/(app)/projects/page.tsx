@@ -6,11 +6,13 @@ import { Plus, FolderKanban, TrendingUp, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ProjectCreateForm } from './ProjectCreateForm'; 
 import Link from 'next/link';
-import { supabase } from "@/lib/supabaseClient"; 
+import { supabase } from "@/lib/supabaseClient";
+// 👇 IMPORT THE CONFIG WE CREATED
+import { API_BASE_URL } from "@/lib/config"; 
 
 // Define the Project type based on the data returned from the FastAPI endpoint
 interface Project {
-    id: string; // The UUID returned by the DB
+    id: string; // Matches backend ProjectDB.id (UUID)
     project_name: string;
     description: string;
     start_year: number;
@@ -19,9 +21,8 @@ interface Project {
     created_at: string;
 }
 
-// Define the API URL
-// const API_URL = "http://127.0.0.1:8000/api/v1/projects"; 
-const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/projects`; 
+// 👇 USE THE CENTRAL API URL
+const PROJECTS_ENDPOINT = `${API_BASE_URL}/api/v1/projects`; 
 
 // Placeholder component for a simple modal backdrop
 function Modal({ children, isOpen, onClose }: { children: React.ReactNode, isOpen: boolean, onClose: (success: boolean) => void }) {
@@ -42,10 +43,10 @@ function Modal({ children, isOpen, onClose }: { children: React.ReactNode, isOpe
     );
 }
 
-// Project Card Component (Extracted for clarity, same logic as before)
+// Project Card Component
 const ProjectCard = ({ project }: { project: Project }) => (
     <Link 
-        // FIX: Ensure project_id is present and is used correctly
+        // Using project.id correctly
         href={`/projects/${project.id}/config`}
         className="block p-4 border border-slate-200/50 dark:border-slate-800/50 rounded-xl hover:shadow-md transition-shadow bg-[var(--surface-bg)]"
     >
@@ -93,7 +94,8 @@ export default function ProjectsPage() {
         // --- END JWT RETRIEVAL ---
 
         try {
-            const response = await fetch(API_URL, {
+            // 👇 USE THE CONFIG ENDPOINT
+            const response = await fetch(PROJECTS_ENDPOINT, {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${token}`, 
@@ -105,19 +107,18 @@ export default function ProjectsPage() {
                 if (response.status === 401) {
                     throw new Error('Your session has expired or the token is invalid.');
                 }
-                const errorData = await response.json();
+                const errorData = await response.json().catch(() => ({}));
                 throw new Error(errorData.detail || `API error: ${response.status}`);
             }
             
             const data = await response.json(); 
-            // FIX: Ensure data is an array before setting state
+            // Safety check: Ensure data is an array before setting state
             if (Array.isArray(data)) {
                  setProjects(data as Project[]); 
             } else {
                  setProjects([]);
             }
            
-            
         } catch (err) {
             console.error("Fetch Projects Failed:", err);
             setError(`Could not load projects: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -136,7 +137,7 @@ export default function ProjectsPage() {
     const handleFormClose = (projectCreated: boolean) => {
         setIsFormOpen(false);
         if (projectCreated) {
-            // Simply re-run fetchProjects, which will internally get the fresh token
+            // Refresh the project list if a new project was successfully created
             fetchProjects();
         }
     };
@@ -175,7 +176,7 @@ export default function ProjectsPage() {
         content = (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {projects.map(project => (
-                    // FIX: Ensure project.project_id is used for the key
+                    // FIX: Ensure project.id is used for the key
                     <ProjectCard key={project.id} project={project} />
                 ))}
             </div>

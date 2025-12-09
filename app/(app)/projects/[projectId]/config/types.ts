@@ -37,3 +37,48 @@ export interface UploadHistoryItem {
   validation_errors?: Record<string, any> | null;
   created_at: string | null;
 }
+
+// --- NEW: Scenario & Parameters Types ---
+
+export type BudgetStrategy = "unconstrained" | "fixed_limit" | "percent_baseline";
+export type PolicyBias = "preventive" | "balanced" | "reactive";
+
+export interface RonetParameters {
+  analysis_duration: number; // 5-30
+  budget_strategy: BudgetStrategy;
+  annual_budget_cap: number | null;
+  budget_percent_baseline: number; // 50-150
+  policy_bias: PolicyBias;
+  discount_rate: number;
+}
+
+export interface Scenario {
+  id: string;
+  project_id: string;
+  name: string;
+  description: string | null;
+  is_baseline: boolean;
+  parameters: RonetParameters;
+  created_at: string;
+  updated_at: string;
+}
+
+
+export interface YearlyResult {
+  year: number;
+  avg_condition_index: number;
+  pct_good: number;
+  pct_fair: number;
+  pct_poor: number;
+  total_maintenance_cost: number;
+  asset_value: number;
+}
+
+export interface SimulationOutput {
+  project_id: string;
+  scenario_id: string;
+  year_count: number;
+  yearly_data: YearlyResult[];
+  total_cost_npv: number;
+  final_network_condition: number;
+}

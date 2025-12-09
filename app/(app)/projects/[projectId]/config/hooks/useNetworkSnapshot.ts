@@ -3,9 +3,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-
-// const API_BASE = "http://127.0.0.1:8000";
-const API_BASE =`${process.env.NEXT_PUBLIC_API_URL}`;
+// 👇 IMPORT THE CENTRAL CONFIG
+import { API_BASE_URL } from "@/lib/config"; 
 
 // -------------------------
 // Raw API types (snake_case)
@@ -138,11 +137,18 @@ export function useNetworkSnapshot(projectId: string) {
       const token = session?.access_token;
 
       if (!token) {
-        throw new Error("Please log in to view network snapshot.");
+        // Soft error to avoid flashing red if just logged out/loading
+        setState((prev) => ({
+            ...prev,
+            loading: false,
+            error: "Please log in to view network snapshot."
+        }));
+        return;
       }
 
+      // 👇 USE API_BASE_URL FROM CONFIG
       const res = await fetch(
-        `${API_BASE}/api/v1/projects/${projectId}/network/snapshot`,
+        `${API_BASE_URL}/api/v1/projects/${projectId}/network/snapshot`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -151,6 +157,12 @@ export function useNetworkSnapshot(projectId: string) {
       );
 
       if (!res.ok) {
+        // Handle 404 gracefully (no snapshot yet)
+        if (res.status === 404) {
+            setState({ snapshot: null, loading: false, error: null });
+            return;
+        }
+        
         const body = await res.json().catch(() => ({}));
         throw new Error(
           body.detail || `Failed to load network snapshot (${res.status})`
@@ -160,6 +172,7 @@ export function useNetworkSnapshot(projectId: string) {
       const api: NetworkSnapshotApi = await res.json();
 
       // ----- Core length logic ---------------------------------------------
+      // Prioritize network_length sheet if available, else segments sum
       const totalLengthKm =
         api.total_network_length_km ??
         api.total_length_km ??
@@ -167,18 +180,29 @@ export function useNetworkSnapshot(projectId: string) {
 
       const lengthBySurfaceApi = api.length_by_surface_type ?? [];
 
+      // Calculate paved/gravel split from surface types
       let pavedLengthKm = 0;
       let gravelLengthKm = 0;
+      
       lengthBySurfaceApi.forEach((row) => {
         const label = (row.label || "").toLowerCase();
         if (
           label.includes("paved") ||
           label.includes("seal") ||
-          label.includes("asphalt")
+          label.includes("asphalt") ||
+          label.includes("concrete") ||
+          label.includes("surfaced")
         ) {
           pavedLengthKm += row.length_km || 0;
-        } else if (label.includes("gravel")) {
+        } else if (
+            label.includes("gravel") || 
+            label.includes("earth") || 
+            label.includes("unpaved")
+        ) {
           gravelLengthKm += row.length_km || 0;
+        } else {
+            // Default bucket if unclear
+            gravelLengthKm += row.length_km || 0;
         }
       });
 
@@ -194,33 +218,42 @@ export function useNetworkSnapshot(projectId: string) {
         totalLengthKm,
         totalSegments: api.total_segments ?? 0,
         totalRoads: api.total_roads ?? null,
+        
         pavedLengthKm,
         gravelLengthKm,
+
         goodConditionPct,
         fairConditionPct,
         poorConditionPct,
+
         totalNetworkLengthKm: api.total_network_length_km ?? null,
+        
         lengthByRoadClass: (api.length_by_road_class ?? []).map((row) => ({
           label: row.label,
           lengthKm: row.length_km ?? 0,
         })),
+        
         lengthBySurfaceType: lengthBySurfaceApi.map((row) => ({
           label: row.label,
           lengthKm: row.length_km ?? 0,
         })),
+        
         lengthByNetworkType: (api.length_by_network_type ?? []).map((row) => ({
           label: row.label,
           lengthKm: row.length_km ?? 0,
         })),
+
         totalAssetValue: api.total_asset_value ?? null,
         assetValueByCategory: (api.asset_value_by_category ?? []).map((row) => ({
           label: row.label,
           value: row.value ?? 0,
         })),
+
         unitCostsBySurface: (api.unit_costs_by_surface ?? []).map((row) => ({
           label: row.label,
           costPerKm: row.cost_per_km ?? 0,
         })),
+
         calculatedAt: api.calculated_at ?? null,
       };
 

@@ -3,10 +3,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+// 👇 IMPORT THE CENTRAL CONFIG
+import { API_BASE_URL } from "@/lib/config";
 import type { LastUpload, PreviewResponse, UploadStatus } from "../types";
-
-// const API_BASE = "http://127.0.0.1:8000";
-const API_BASE = `${process.env.NEXT_PUBLIC_API_URL}`;
 
 /**
  * Map whatever the API gives us to our UI status.
@@ -108,8 +107,9 @@ export function useMasterDataUpload(projectId: string) {
           return;
         }
 
+        // 👇 USE API_BASE_URL
         const res = await fetch(
-          `${API_BASE}/api/v1/projects/${projectId}/master-data/uploads/${targetUploadId}/preview`,
+          `${API_BASE_URL}/api/v1/projects/${projectId}/master-data/uploads/${targetUploadId}/preview`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -155,8 +155,9 @@ export function useMasterDataUpload(projectId: string) {
         return;
       }
 
+      // 👇 USE API_BASE_URL
       const res = await fetch(
-        `${API_BASE}/api/v1/projects/${projectId}/master-data/uploads`,
+        `${API_BASE_URL}/api/v1/projects/${projectId}/master-data/uploads`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -258,7 +259,8 @@ export function useMasterDataUpload(projectId: string) {
       const formData = new FormData();
       formData.append("file", file);
 
-      const uploadUrl = `${API_BASE}/api/v1/projects/${projectId}/master-data/upload`;
+      // 👇 USE API_BASE_URL
+      const uploadUrl = `${API_BASE_URL}/api/v1/projects/${projectId}/master-data/upload`;
 
       setStatus("processing");
 
