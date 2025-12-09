@@ -1,22 +1,27 @@
+/* --- ./app/globals.css (FINAL CORRECTED VERSION) --- */
 @import "tailwindcss";
 
+/* Define Custom Color Variables */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Light Theme */
+  --background: #f4f6fb;   /* Main canvas background */
+  --foreground: #1e293b;   /* Main text color (slate-800) */
+  --surface-bg: #ffffff;   /* Elevated element background (cards, sidebar) */
+  --sidebar-bg: var(--surface-bg);
+  --accent-color: #4c51f0; /* Accent color (deep purple/blue for CTAs) */
+  --input-bg: #ffffff;     /* Input background: White in light mode */
+  --input-text: #1e293b;   /* Input text: Dark text in light mode */
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Dark Theme */
+.dark {
+  --background: #09090b;   /* Deep near-black background (slate-950) */
+  --foreground: #f1f5f9;   /* Light text color (slate-100) */
+  --surface-bg: #111827;   /* Dark elevated surface (slate-900) */
+  --sidebar-bg: var(--surface-bg);
+  --accent-color: #5d62f3; 
+  --input-bg: #1e293d;     /* Input background: Slate-800 for contrast */
+  --input-text: #f1f5f9;   /* Input text: Light text in dark mode */
 }
 
 body {
