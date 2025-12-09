@@ -7,7 +7,8 @@ import { useRouter } from "next/navigation";
 import { NewProject } from "@/types/project"; 
 import { supabase } from "@/lib/supabaseClient";
 
-const API_URL = "http://127.0.0.1:8000/api/v1/projects"; // Replace with process.env.NEXT_PUBLIC_API_URL in a full setup
+// const API_URL = "http://127.0.0.1:8000/api/v1/projects"; // Replace with process.env.NEXT_PUBLIC_API_URL in a full setup
+const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/projects`; // Replace with process.env.NEXT_PUBLIC_API_URL in a full setup
 const getCurrentYear = () => new Date().getFullYear();
 
 // FIX: Updated onClose signature to match parent component's requirement

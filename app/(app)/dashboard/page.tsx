@@ -15,7 +15,10 @@ import type { Dashboard } from "./types";
 import { DashboardMainPanel } from "./components/DashboardMainPanel";
 import { ScenarioControlsCard } from "./components/ScenarioControlsCard";
 
-const API_BASE = "http://127.0.0.1:8000";
+// const API_BASE = "http://127.0.0.1:8000";
+
+
+const API_BASE= `${process.env.NEXT_PUBLIC_API_URL}`;
 
 type Project = {
   id: string;
