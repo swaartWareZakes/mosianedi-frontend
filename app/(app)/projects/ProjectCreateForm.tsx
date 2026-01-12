@@ -1,208 +1,174 @@
-/* --- app/(app)/projects/ProjectCreateForm.tsx --- */
 "use client";
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { NewProject } from "@/types/project"; 
 import { supabase } from "@/lib/supabaseClient";
-import { API_BASE_URL } from "@/lib/config"; // <-- IMPORT THIS
+import { API_BASE_URL } from "@/lib/config";
+import { X, Loader2, FolderPlus } from "lucide-react";
 
-// USE THE IMPORTED CONFIG
-const PROJECTS_ENDPOINT = `${API_BASE_URL}/api/v1/projects`; 
-const getCurrentYear = () => new Date().getFullYear();
+interface ProjectCreateFormProps {
+  onClose: (success?: boolean) => void;
+}
 
-export function ProjectCreateForm({ onClose }: { onClose: (success: boolean) => void }) {
+const PROVINCES = [
+  "Eastern Cape",
+  "Free State",
+  "Gauteng",
+  "KwaZulu-Natal",
+  "Limpopo",
+  "Mpumalanga",
+  "Northern Cape",
+  "North West",
+  "Western Cape",
+];
+
+export function ProjectCreateForm({ onClose }: ProjectCreateFormProps) {
   const router = useRouter();
+
   const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  // State to handle redirect after modal closes
-  const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const [project, setProject] = useState<NewProject>({
-    project_name: "",
-    description: "",
-    start_year: getCurrentYear(),
-    forecast_duration: 5,
-    discount_rate: 8.0,
-  });
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setProject((prev) => ({
-      ...prev,
-      [name]:
-        name === "start_year" || name === "forecast_duration"
-          ? parseInt(value) || 0
-          : name === "discount_rate"
-          ? parseFloat(value) || 0
-          : value,
-    }));
-  };
+  // Minimal fields for the new demo flow
+  const [projectName, setProjectName] = useState("");
+  const [province, setProvince] = useState(PROVINCES[0]);
+  const [startYear, setStartYear] = useState(new Date().getFullYear() + 1);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMsg(null);
     setLoading(true);
-
-    let success = false;
-    let newRedirectUrl: string | null = null;
+    setError(null);
 
     try {
-        const { data: { session } } = await supabase.auth.getSession(); 
-        const token = session?.access_token;
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error("Not authenticated. Please log in again.");
 
-        if (!token) {
-             throw new Error("User session expired or unauthorized.");
-        }
-        
-        // USE THE CENTRALIZED ENDPOINT
-        const response = await fetch(PROJECTS_ENDPOINT, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}` 
-            },
-            body: JSON.stringify(project),
-        });
+      const payload = {
+        project_name: projectName,
+        province,
+        start_year: startYear,
+      };
 
-        const data = await response.json();
+      const res = await fetch(`${API_BASE_URL}/api/v1/projects/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
 
-        if (!response.ok) {
-            throw new Error(data.message || `API error: ${response.status}`);
-        }
+      if (!res.ok) {
+        const text = await res.text();
+        // FastAPI often returns plain text or JSON; show raw for debugging
+        throw new Error(text || `Failed to create project (${res.status})`);
+      }
 
-        // Success: Prepare redirect URL
-        const newProjectId = data.project_id;
-        newRedirectUrl = `/projects/${newProjectId}/config`;
-        success = true;
-        
-    } catch (err) {
-        console.error("Project Creation Failed:", err);
-        const msg = err instanceof Error ? err.message : 'Unknown error';
-        setErrorMsg(`Failed to create project: ${msg}`);
-        success = false; 
-        newRedirectUrl = null;
+      // Success
+      onClose(true);
+      router.refresh();
+    } catch (err: any) {
+      setError(err?.message ?? "Unknown error");
     } finally {
-        setLoading(false);
-        setRedirectUrl(newRedirectUrl);
-        onClose(success); // Signal parent to close modal and refresh list
-        
-        // Perform redirect ensuring state updates don't conflict with unmounting
-        if (success && newRedirectUrl) {
-             router.push(newRedirectUrl);
-        }
+      setLoading(false);
     }
   };
 
   return (
-    <div className="bg-[var(--surface-bg)] rounded-2xl p-6 shadow-xl">
-        <h2 className="text-xl font-semibold text-[var(--foreground)] mb-2">Create New Project Scenario</h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
-            Define the scope and planning horizon for your road investment simulation.
-        </p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="w-full max-w-md bg-[var(--surface-bg)] border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-800">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <FolderPlus className="w-5 h-5 text-indigo-500" />
+            New Provincial Proposal
+          </h2>
+          <button
+            onClick={() => onClose(false)}
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Project Name */}
-            <div>
-                <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    Project Name
-                </label>
-                <input
-                    type="text"
-                    name="project_name"
-                    required
-                    value={project.project_name}
-                    onChange={handleChange}
-                    className="w-full rounded-xl border border-slate-300 bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--input-text)] focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:focus:ring-sky-800/40"
-                    placeholder="e.g., 5-Year National Road Maintenance"
-                />
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {error && (
+            <div className="p-3 text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-lg whitespace-pre-wrap">
+              {error}
             </div>
-            
-            {/* Description */}
-            <div>
-                <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    Description / Scope
-                </label>
-                <textarea
-                    name="description"
-                    rows={3}
-                    required
-                    value={project.description}
-                    onChange={handleChange}
-                    className="w-full rounded-xl border border-slate-300 bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--input-text)] focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:focus:ring-sky-800/40"
-                    placeholder="Justify this simulation and outline key assumptions."
-                />
-            </div>
+          )}
 
-            {/* Start Year / Duration / Discount Rate */}
-            <div className="grid grid-cols-3 gap-4">
-                <div>
-                    <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        Start Year
-                    </label>
-                    <input
-                        type="number"
-                        name="start_year"
-                        required
-                        value={project.start_year}
-                        onChange={handleChange}
-                        className="w-full rounded-xl border border-slate-300 bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--input-text)] focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:focus:ring-sky-800/40"
-                    />
-                </div>
-                <div>
-                    <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        Duration (Years)
-                    </label>
-                    <input
-                        type="number"
-                        name="forecast_duration"
-                        required
-                        min={1}
-                        max={30}
-                        value={project.forecast_duration}
-                        onChange={handleChange}
-                        className="w-full rounded-xl border border-slate-300 bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--input-text)] focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:focus:ring-sky-800/40"
-                    />
-                </div>
-                <div>
-                    <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        Discount Rate (%)
-                    </label>
-                    <input
-                        type="number"
-                        name="discount_rate"
-                        required
-                        step="0.1"
-                        min="0"
-                        max="100"
-                        value={project.discount_rate}
-                        onChange={handleChange}
-                        className="w-full rounded-xl border border-slate-300 bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--input-text)] focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:focus:ring-sky-800/40"
-                    />
-                </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              Proposal Title
+            </label>
+            <input
+              type="text"
+              required
+              placeholder="e.g. Eastern Cape 2026 Budget Proposal"
+              className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              value={projectName}
+              onChange={(e) => setProjectName(e.target.value)}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                Province
+              </label>
+              <select
+                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                value={province}
+                onChange={(e) => setProvince(e.target.value)}
+              >
+                {PROVINCES.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            {errorMsg && (
-                <p className="text-xs text-red-500">{errorMsg}</p>
-            )}
-
-            <div className="flex justify-end space-x-3 pt-2">
-                <button
-                    type="button"
-                    onClick={() => onClose(false)}
-                    className="px-4 py-2 text-sm font-medium text-slate-500 hover:text-[var(--foreground)] transition-colors"
-                >
-                    Cancel
-                </button>
-                <button
-                    type="submit"
-                    disabled={loading}
-                    className="rounded-xl bg-[var(--accent-color)] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:brightness-110 disabled:opacity-70 transition"
-                >
-                    {loading ? "Creating..." : "Create Project"}
-                </button>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                Year
+              </label>
+              <select
+                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                value={startYear}
+                onChange={(e) => setStartYear(Number(e.target.value))}
+              >
+                {[2024, 2025, 2026, 2027, 2028].map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
             </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => onClose(false)}
+              className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:opacity-50"
+            >
+              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+              Create Proposal
+            </button>
+          </div>
         </form>
+      </div>
     </div>
   );
 }

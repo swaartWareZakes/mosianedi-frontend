@@ -9,6 +9,7 @@ import { DataInputCard } from "./DataInputCard";
 import { NetworkSnapshotCard } from "./components/NetworkSnapshotCard";
 import { ScenarioAssumptionsCard } from "./components/ScenarioAssumptionsCard";
 import { RunSimulationCard } from "./components/RunSimulationCard";
+import { ProvincialStatsCard } from "./components/ProvincialStatsCard";
 
 export default function ProjectConfigPage() {
   const params = useParams();
@@ -53,6 +54,9 @@ export default function ProjectConfigPage() {
         <div className="space-y-6">
             {/* 1. UPLOAD */}
             <DataInputCard projectId={projectId} />
+
+            {/* NEW: Provincial Data Grid */}
+          <ProvincialStatsCard projectId={projectId} />
 
             {/* 2. ASSUMPTIONS */}
             <ScenarioAssumptionsCard projectId={projectId} />
