@@ -1,11 +1,11 @@
 /* --- ./app/(app)/projects/page.tsx (FINAL CONSOLIDATED FIX) --- */
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { Plus, FolderKanban } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { ProjectCreateForm } from './ProjectCreateForm';
-import Link from 'next/link';
+import { useState, useEffect, useCallback } from "react";
+import { Plus, FolderKanban } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { ProjectCreateForm } from "./ProjectCreateForm";
+import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { API_BASE_URL } from "@/lib/config";
 
@@ -89,27 +89,29 @@ export default function ProjectsPage() {
     setLoading(true);
     setError(null);
 
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     const token = session?.access_token;
 
     if (!token) {
       setLoading(false);
-      setError('Authorization required. Please log in.');
+      setError("Authorization required. Please log in.");
       return;
     }
 
     try {
       const response = await fetch(PROJECTS_ENDPOINT, {
-        method: 'GET',
+        method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
       });
 
       if (!response.ok) {
         if (response.status === 401) {
-          throw new Error('Your session has expired or the token is invalid.');
+          throw new Error("Your session has expired or the token is invalid.");
         }
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.detail || `API error: ${response.status}`);
@@ -118,10 +120,13 @@ export default function ProjectsPage() {
       const data = await response.json();
       if (Array.isArray(data)) setProjects(data as Project[]);
       else setProjects([]);
-
     } catch (err) {
       console.error("Fetch Projects Failed:", err);
-      setError(`Could not load projects: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setError(
+        `Could not load projects: ${
+          err instanceof Error ? err.message : "Unknown error"
+        }`
+      );
     } finally {
       setLoading(false);
     }
@@ -138,7 +143,7 @@ export default function ProjectsPage() {
   };
 
   let content;
-  const isAuthError = error && error.includes('Authorization required');
+  const isAuthError = error && error.includes("Authorization required");
 
   if (loading) {
     content = (
