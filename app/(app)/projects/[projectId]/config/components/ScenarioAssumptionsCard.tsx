@@ -1,144 +1,127 @@
 "use client";
 
 import React from "react";
-import { Zap, Save } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useScenarioAssumptions } from "../hooks/useScenarioAssumptions";
+import { useForecast } from "../hooks/useForecast";
+import { TrendingUp, Clock, AlertTriangle, Droplets, Gauge } from "lucide-react";
 
 export function ScenarioAssumptionsCard({ projectId }: { projectId: string }) {
-  const { parameters, loading, isSaving, updateParameter } =
-    useScenarioAssumptions(projectId);
+  const { data, loading, saving, updateField } = useForecast(projectId);
+
+  if (loading) {
+    return <div className="h-48 bg-slate-100 dark:bg-slate-900 animate-pulse rounded-xl" />;
+  }
+
+  if (!data) return null;
 
   return (
-    <div className="p-6 bg-[var(--surface-bg)] rounded-2xl shadow-lg border border-slate-200/10 dark:border-slate-800/10 space-y-4 relative">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold flex items-center gap-2">
-          <Zap className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
-          2. Scenario Assumptions
-        </h2>
-        {/* Saving Indicator */}
-        <div className="h-4 flex items-center">
-          {isSaving && (
-            <span className="text-[10px] text-slate-400 flex items-center gap-1">
-              <Save className="h-3 w-3 animate-pulse" /> Saving...
-            </span>
-          )}
+    <div className="bg-[var(--surface-bg)] border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
+      {/* Header */}
+      <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
+        <div>
+          <h3 className="font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-indigo-500" />
+            Forecast Strategy
+          </h3>
+          <p className="text-xs text-slate-500">Define the variables for the 2027/28 projection.</p>
         </div>
+        {saving && <span className="text-[10px] text-indigo-500 animate-pulse font-medium">Saving...</span>}
       </div>
 
-      {loading || !parameters ? (
-        <div className="py-8 text-center text-xs text-slate-500 dark:text-slate-400">
-          Loading default assumptions...
+      <div className="p-6 grid gap-8 md:grid-cols-3">
+        
+        {/* COL 1: ECONOMICS */}
+        <div className="space-y-4">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Economic Reality</h4>
+          
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-300">CPI Inflation</label>
+            <div className="flex items-center gap-2">
+              <input 
+                type="number" 
+                value={data.cpi_percentage}
+                onChange={(e) => updateField("cpi_percentage", Number(e.target.value))}
+                className="w-20 p-1.5 text-sm border rounded bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-700"
+              />
+              <span className="text-sm text-slate-500">%</span>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Prev. Allocation</label>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-500">R</span>
+              <input 
+                type="number"
+                value={data.previous_allocation}
+                onChange={(e) => updateField("previous_allocation", Number(e.target.value))} 
+                className="w-full p-1.5 text-sm border rounded bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-700"
+              />
+            </div>
+            <p className="text-[10px] text-slate-400">Used to calculate real budget growth/decline.</p>
+          </div>
         </div>
-      ) : (
-        <>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Configure the high-level assumptions. Changes serve as the "Baseline".
-          </p>
 
-          {/* 1. Analysis Period */}
+        {/* COL 2: ENGINEERING */}
+        <div className="space-y-4">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Engineering & Decay</h4>
+          
           <div className="space-y-1">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-medium text-slate-700 dark:text-slate-200">
-                Analysis period
-              </span>
-              <span className="text-slate-500 dark:text-slate-400">
-                {parameters.analysis_duration} years
-              </span>
-            </div>
-            <input
-              type="range"
-              min={5}
-              max={30}
-              step={1}
-              value={parameters.analysis_duration}
-              onChange={(e) =>
-                updateParameter("analysis_duration", Number(e.target.value))
-              }
-              className="w-full accent-[var(--accent-color)] cursor-pointer"
-            />
-            <p className="text-[10px] text-slate-500 dark:text-slate-400">
-              Typical RONET analyses use 20 years.
-            </p>
+             <label className="text-xs font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3 text-amber-500"/> Paved Deterioration
+             </label>
+             <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+                {(["Slow", "Medium", "Fast"] as const).map((opt) => (
+                    <button
+                        key={opt}
+                        onClick={() => updateField("paved_deterioration_rate", opt)}
+                        className={`flex-1 text-xs py-1 rounded-md transition-all ${data.paved_deterioration_rate === opt ? 'bg-white dark:bg-slate-700 shadow text-indigo-600 dark:text-indigo-400 font-medium' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                        {opt}
+                    </button>
+                ))}
+             </div>
           </div>
 
-          {/* 2. Budget Level */}
-          <div className="space-y-1">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-medium text-slate-700 dark:text-slate-200">
-                Annual budget level
-              </span>
-              <span className="text-slate-500 dark:text-slate-400">
-                {parameters.budget_percent_baseline}% of required
-              </span>
-            </div>
-            <input
-              type="range"
-              min={50}
-              max={150}
-              step={5}
-              value={parameters.budget_percent_baseline}
-              onChange={(e) =>
-                updateParameter(
-                  "budget_percent_baseline",
-                  Number(e.target.value)
-                )
-              }
-              className="w-full accent-[var(--accent-color)] cursor-pointer"
-            />
-            <div className="flex justify-between text-[10px] text-slate-400 px-1">
-              <span>Constraint</span>
-              <span>Baseline</span>
-              <span>Growth</span>
+           <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1">
+                <Droplets className="w-3 h-3 text-blue-500"/> Gravel Loss Rate
+            </label>
+            <div className="flex items-center gap-2">
+              <input 
+                type="number"
+                value={data.gravel_loss_rate}
+                onChange={(e) => updateField("gravel_loss_rate", Number(e.target.value))}
+                className="w-20 p-1.5 text-sm border rounded bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-700"
+              />
+              <span className="text-xs text-slate-500">mm / year</span>
             </div>
           </div>
+        </div>
 
-          {/* 3. Policy Bias */}
-          <div className="space-y-2 pt-2">
-            <p className="text-xs font-medium text-slate-700 dark:text-slate-200">
-              Maintenance policy bias
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {(
-                [
-                  {
-                    value: "preventive",
-                    label: "Preventive",
-                    desc: "Fix good roads first",
-                  },
-                  {
-                    value: "balanced",
-                    label: "Balanced",
-                    desc: "Optimal mix",
-                  },
-                  {
-                    value: "reactive",
-                    label: "Reactive",
-                    desc: "Fix worst first",
-                  },
-                ] as const
-              ).map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => updateParameter("policy_bias", option.value)}
-                  className={cn(
-                    "flex-1 min-w-[80px] px-3 py-2 rounded-xl border text-left transition text-[11px]",
-                    parameters.policy_bias === option.value
-                      ? "border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-900 dark:text-yellow-100"
-                      : "border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/60 text-slate-600 dark:text-slate-200"
-                  )}
-                >
-                  <div className="font-semibold">{option.label}</div>
-                  <div className="text-[9px] opacity-80 leading-tight mt-0.5">
-                    {option.desc}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
+        {/* COL 3: TIME */}
+        <div className="space-y-4">
+           <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Time Horizon</h4>
+           
+           <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-4 text-center border border-indigo-100 dark:border-indigo-800/30">
+              <Clock className="w-6 h-6 text-indigo-500 mx-auto mb-2" />
+              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                {data.analysis_duration} <span className="text-sm font-medium text-slate-500">Years</span>
+              </div>
+              <input 
+                type="range" 
+                min="3" 
+                max="20" 
+                value={data.analysis_duration}
+                onChange={(e) => updateField("analysis_duration", Number(e.target.value))}
+                className="w-full mt-3 accent-indigo-600"
+              />
+              <p className="text-[10px] text-indigo-600/70 dark:text-indigo-400/70 mt-1">
+                 Projection until {new Date().getFullYear() + 1 + data.analysis_duration}
+              </p>
+           </div>
+        </div>
+
+      </div>
     </div>
   );
 }

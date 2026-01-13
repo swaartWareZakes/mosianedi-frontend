@@ -1,9 +1,9 @@
 // app/(app)/projects/[projectId]/config/types.ts
 
-// High-level upload status that the UI understands
+// --- Upload / Master Data Types (Legacy/Support) ---
+
 export type UploadStatus = "success" | "processing" | "failed" | "none";
 
-// Shape of the “last upload” that we show in the status card
 export interface LastUpload {
   id?: string;
   project_id: string;
@@ -11,58 +11,42 @@ export interface LastUpload {
   status: UploadStatus;
   row_count?: number | null;
   uploaded_at: string | null;
-
-  // Extra metadata from backend
   validation_errors?: Record<string, any> | null;
   original_filename?: string | null;
 }
 
-// Response from /master-data/preview
 export interface PreviewResponse {
-  preview_data: Record<string, any>[]; // array of row objects
+  preview_data: Record<string, any>[];
   total_rows: number;
   columns: string[];
 }
 
-// (For future “history” view – list of past uploads)
-export interface UploadHistoryItem {
+// --- NEW: Forecast & Strategy Types ---
+
+export interface ForecastParameters {
   id: string;
   project_id: string;
-  user_id: string;
-  original_filename: string | null;
-  mime_type: string | null;
-  file_size: number | null;
-  status: string | null;
-  row_count: number | null;
-  validation_errors?: Record<string, any> | null;
-  created_at: string | null;
-}
 
-// --- NEW: Scenario & Parameters Types ---
+  // Section A: Economic Reality
+  cpi_percentage: number;       // Default 6.0
+  discount_rate: number;        // Default 8.0
+  previous_allocation: number;  // Default 0
 
-export type BudgetStrategy = "unconstrained" | "fixed_limit" | "percent_baseline";
-export type PolicyBias = "preventive" | "balanced" | "reactive";
+  // Section B: Engineering Reality
+  paved_deterioration_rate: "Slow" | "Medium" | "Fast";
+  gravel_loss_rate: number;     // mm per year (Default 20)
+  climate_stress_factor: "Low" | "Medium" | "High";
 
-export interface RonetParameters {
-  analysis_duration: number; // 5-30
-  budget_strategy: BudgetStrategy;
-  annual_budget_cap: number | null;
-  budget_percent_baseline: number; // 50-150
-  policy_bias: PolicyBias;
-  discount_rate: number;
-}
+  // Section C: Time
+  analysis_duration: number;    // Years (3 to 20)
 
-export interface Scenario {
-  id: string;
-  project_id: string;
-  name: string;
-  description: string | null;
-  is_baseline: boolean;
-  parameters: RonetParameters;
-  created_at: string;
   updated_at: string;
 }
 
+// Helper for partial updates (PATCH)
+export type ForecastPatch = Partial<ForecastParameters>;
+
+// --- Simulation Results ---
 
 export interface YearlyResult {
   year: number;
@@ -76,12 +60,19 @@ export interface YearlyResult {
 
 export interface SimulationOutput {
   project_id: string;
-  scenario_id: string;
   year_count: number;
+  
+  // Time Series Data (for charts)
   yearly_data: YearlyResult[];
+  
+  // Aggregates (for summary cards)
   total_cost_npv: number;
   final_network_condition: number;
+  
+  generated_at?: string;
 }
+
+// --- Proposal Inputs (Green Blocks) ---
 
 export type ProposalData = {
   id: string;
@@ -89,18 +80,21 @@ export type ProposalData = {
   user_id: string;
   data_source: string;
 
+  // Paved Climate Zones
   paved_arid: number;
   paved_semi_arid: number;
   paved_dry_sub_humid: number;
   paved_moist_sub_humid: number;
   paved_humid: number;
 
+  // Gravel Climate Zones
   gravel_arid: number;
   gravel_semi_arid: number;
   gravel_dry_sub_humid: number;
   gravel_moist_sub_humid: number;
   gravel_humid: number;
 
+  // Indicators
   avg_vci_used: number;
   vehicle_km: number;
   pct_vehicle_km_used: number;

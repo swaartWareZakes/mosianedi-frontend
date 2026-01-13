@@ -1,111 +1,148 @@
 "use client";
 
 import React from "react";
-import { Map, RefreshCw, AlertTriangle } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Activity, Coins, Layers, BarChart3, RefreshCw } from "lucide-react";
 import { useNetworkSnapshot } from "../hooks/useNetworkSnapshot";
 
+// --- FIX: Safe formatting functions ---
+function fmtCurrency(val: any) {
+  const v = Number(val); // Convert to number
+  if (!Number.isFinite(v)) return "R 0"; // Safety check
+
+  if (v >= 1_000_000_000) return `R ${(v / 1_000_000_000).toFixed(1)} Billion`;
+  if (v >= 1_000_000) return `R ${(v / 1_000_000).toFixed(1)} Million`;
+  return `R ${v.toLocaleString()}`;
+}
+
+function fmtNum(val: any) {
+  const v = Number(val);
+  if (!Number.isFinite(v)) return "0";
+  return v.toLocaleString("en-ZA", { maximumFractionDigits: 0 });
+}
+
 export function NetworkSnapshotCard({ projectId }: { projectId: string }) {
-  const { snapshot, loading, error, refetch } = useNetworkSnapshot(projectId);
+  const { data, loading, error, refetch } = useNetworkSnapshot(projectId);
+
+  // Determine health color based on VCI (Default to 0 if data missing)
+  const vci = data?.avgVci || 0;
+  let healthColor = "bg-rose-500"; 
+  let healthText = "Critical";
+  
+  if (vci > 85) { healthColor = "bg-emerald-500"; healthText = "Excellent"; }
+  else if (vci > 70) { healthColor = "bg-green-500"; healthText = "Good"; }
+  else if (vci > 50) { healthColor = "bg-amber-500"; healthText = "Fair"; }
+  else if (vci > 30) { healthColor = "bg-orange-500"; healthText = "Poor"; }
+
+  // Safe variables for rendering
+  const totalLength = data?.totalLengthKm || 0;
+  const pavedLength = data?.pavedLengthKm || 0;
+  const gravelLength = data?.gravelLengthKm || 0;
+  const assetValue = data?.assetValue || 0;
 
   return (
-    <div className="p-6 bg-[var(--surface-bg)] rounded-2xl shadow-lg border border-slate-200/10 dark:border-slate-800/10 space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold flex items-center gap-2">
-          <Map className="h-5 w-5 text-sky-600 dark:text-sky-400" />
-          Network Snapshot
-        </h2>
-        <button
-          type="button"
-          onClick={refetch}
+    <div className="bg-[var(--surface-bg)] rounded-2xl shadow-lg border border-slate-200/50 dark:border-slate-800/50 overflow-hidden">
+      
+      {/* Header */}
+      <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
+        <div>
+          <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+            <Activity className="w-4 h-4 text-indigo-500" />
+            Asset Health Profile
+          </h2>
+          <p className="text-xs text-slate-500">Current Replacement Cost & Condition</p>
+        </div>
+        <button 
+          onClick={refetch} 
           disabled={loading}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/60 disabled:opacity-50"
+          className="text-slate-400 hover:text-indigo-500 transition-colors"
         >
-          <RefreshCw className={cn("h-3 w-3", loading && "animate-spin")} />
-          {loading ? "Refreshing..." : "Refresh"}
+          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
         </button>
       </div>
 
-      {!loading && error && (
-        <div className="flex items-start gap-2 text-xs text-red-500">
-          <AlertTriangle className="h-4 w-4 mt-0.5" />
-          <span>{error}</span>
+      {loading ? (
+        <div className="p-8 flex justify-center">
+            <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-500 rounded-full animate-spin" />
         </div>
-      )}
+      ) : !data || totalLength === 0 ? (
+        <div className="p-8 text-center text-sm text-slate-400">
+           No network data defined. 
+           <br/>Start by entering inputs on the left.
+        </div>
+      ) : (
+        <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            
+            {/* 1. HERO: ASSET VALUE (CRC) */}
+            <div className="p-6">
+                <div className="flex items-center gap-2 mb-1">
+                    <Coins className="w-4 h-4 text-slate-400" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Net Asset Value (CRC)</span>
+                </div>
+                <div className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+                    {fmtCurrency(assetValue)}
+                </div>
+                <p className="text-xs text-slate-400 mt-1">
+                    Estimated replacement cost based on {fmtNum(totalLength)} km network.
+                </p>
+            </div>
 
-      {!loading && !error && !snapshot && (
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          No snapshot available yet.
-        </p>
-      )}
+            {/* 2. VCI GAUGE */}
+            <div className="p-6">
+                <div className="flex justify-between items-end mb-2">
+                    <div className="flex items-center gap-2">
+                        <BarChart3 className="w-4 h-4 text-slate-400" />
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Network Condition (VCI)</span>
+                    </div>
+                    <div className="text-right">
+                        <span className="text-2xl font-bold text-slate-900 dark:text-white">{vci.toFixed(1)}</span>
+                        <span className="text-xs text-slate-400 ml-1">/ 100</span>
+                    </div>
+                </div>
+                
+                {/* Progress Bar */}
+                <div className="h-3 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden relative">
+                    <div 
+                        className={`h-full ${healthColor} transition-all duration-1000 ease-out`} 
+                        style={{ width: `${Math.min(vci, 100)}%` }} 
+                    />
+                </div>
+                <div className="flex justify-between mt-2 text-xs font-medium">
+                    <span className="text-slate-400">Critical</span>
+                    <span className={healthColor.replace('bg-', 'text-')}>{healthText} Condition</span>
+                    <span className="text-slate-400">Perfect</span>
+                </div>
+            </div>
 
-      {!loading && snapshot && (
-        <div className="space-y-4 text-sm">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="rounded-xl bg-slate-50 dark:bg-slate-900/40 px-3 py-2.5">
-              <p className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Total Network
-              </p>
-              <p className="mt-1 text-lg font-semibold">
-                {snapshot.totalLengthKm.toLocaleString()} km
-              </p>
-              <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
-                Segments: {snapshot.totalSegments.toLocaleString()}
-              </p>
-            </div>
-            <div className="rounded-xl bg-slate-50 dark:bg-slate-900/40 px-3 py-2.5">
-              <p className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Surface Mix
-              </p>
-              <p className="mt-1 text-sm font-medium">
-                {snapshot.pavedLengthKm.toLocaleString()} paved
-              </p>
-              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                {snapshot.gravelLengthKm.toLocaleString()} gravel
-              </p>
-            </div>
-          </div>
-          {/* Condition Bars */}
-          <div>
-            <div className="flex justify-between text-[10px] text-slate-500 dark:text-slate-400 mb-1">
-              <span>Condition Split (Approx)</span>
-              <span>Good / Fair / Poor</span>
-            </div>
-            <div className="h-2 flex rounded-full overflow-hidden w-full bg-slate-200 dark:bg-slate-800">
-              <div
-                className="bg-emerald-500"
-                style={{ width: `${snapshot.goodConditionPct}%` }}
-              />
-              <div
-                className="bg-amber-500"
-                style={{ width: `${snapshot.fairConditionPct}%` }}
-              />
-              <div
-                className="bg-rose-500"
-                style={{ width: `${snapshot.poorConditionPct}%` }}
-              />
-            </div>
-            <div className="mt-1 flex justify-between text-[10px] font-medium">
-              <span className="text-emerald-600 dark:text-emerald-400">
-                {snapshot.goodConditionPct.toFixed(0)}%
-              </span>
-              <span className="text-amber-600 dark:text-amber-400">
-                {snapshot.fairConditionPct.toFixed(0)}%
-              </span>
-              <span className="text-rose-600 dark:text-rose-400">
-                {snapshot.poorConditionPct.toFixed(0)}%
-              </span>
-            </div>
-          </div>
+            {/* 3. ASSET MIX */}
+            <div className="p-6 bg-slate-50/30 dark:bg-slate-900/30">
+                <div className="flex items-center gap-2 mb-4">
+                    <Layers className="w-4 h-4 text-slate-400" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Asset Composition</span>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
+                        <div className="text-xs text-slate-400 mb-1">Paved Network</div>
+                        <div className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                            {fmtNum(pavedLength)} <span className="text-xs font-normal text-slate-400">km</span>
+                        </div>
+                        <div className="h-1 w-full bg-slate-100 dark:bg-slate-700 mt-2 rounded-full overflow-hidden">
+                             <div className="h-full bg-indigo-500" style={{ width: `${totalLength > 0 ? (pavedLength / totalLength) * 100 : 0}%` }} />
+                        </div>
+                    </div>
 
-          <p className="text-[10px] text-slate-500 dark:text-slate-500">
-            Snapshot calculated at{" "}
-            <span className="font-mono">
-              {snapshot.calculatedAt
-                ? new Date(snapshot.calculatedAt).toLocaleString("en-ZA")
-                : "Unknown"}
-            </span>
-          </p>
+                    <div className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
+                        <div className="text-xs text-slate-400 mb-1">Gravel Network</div>
+                        <div className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                            {fmtNum(gravelLength)} <span className="text-xs font-normal text-slate-400">km</span>
+                        </div>
+                        <div className="h-1 w-full bg-slate-100 dark:bg-slate-700 mt-2 rounded-full overflow-hidden">
+                             <div className="h-full bg-amber-500" style={{ width: `${totalLength > 0 ? (gravelLength / totalLength) * 100 : 0}%` }} />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
       )}
     </div>
