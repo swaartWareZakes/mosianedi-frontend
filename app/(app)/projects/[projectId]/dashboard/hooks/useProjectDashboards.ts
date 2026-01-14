@@ -1,14 +1,12 @@
-// app/(app)/dashboard/hooks/useProjectDashboards.ts
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Dashboard } from "../types";
 
-// const API_BASE = "http://127.0.0.1:8000";
-const API_BASE = `${process.env.NEXT_PUBLIC_API_URL}`;
+const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 
-export function useProjectDashboards(projectId: string | "") {
+export function useProjectDashboards(projectId: string | undefined) {
   const [dashboards, setDashboards] = useState<Dashboard[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,31 +17,27 @@ export function useProjectDashboards(projectId: string | "") {
     setError(null);
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) {
-        setError("Please log in to load dashboards.");
-        setLoading(false);
-        return;
-      }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
 
       const res = await fetch(
         `${API_BASE}/api/v1/projects/${projectId}/dashboards`,
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${session.access_token}` },
         }
       );
 
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.detail || `Failed to load dashboards (${res.status})`);
+        // Handle 404 silently (just empty list)
+        if (res.status === 404) {
+            setDashboards([]);
+            return;
+        }
+        throw new Error("Failed to load dashboards");
       }
 
       const data = await res.json();
+      // Map snake_case to camelCase
       const mapped: Dashboard[] = data.map((d: any) => ({
         id: d.id,
         projectId: d.project_id,
@@ -60,7 +54,7 @@ export function useProjectDashboards(projectId: string | "") {
       setDashboards(mapped);
     } catch (err: any) {
       console.error("[useProjectDashboards] error:", err);
-      setError(err.message || "Could not load dashboards.");
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -70,8 +64,8 @@ export function useProjectDashboards(projectId: string | "") {
     fetchDashboards();
   }, [fetchDashboards]);
 
-  const createDashboard = useCallback(
-    async (payload: {
+  // Create Dashboard
+  const createDashboard = useCallback(async (payload: {
       name: string;
       description?: string;
       overrides?: any;
@@ -79,11 +73,8 @@ export function useProjectDashboards(projectId: string | "") {
       isFavorite?: boolean;
     }) => {
       if (!projectId) return;
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) throw new Error("Not authenticated.");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
 
       const res = await fetch(
         `${API_BASE}/api/v1/projects/${projectId}/dashboards`,
@@ -91,39 +82,24 @@ export function useProjectDashboards(projectId: string | "") {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${session.access_token}`,
           },
           body: JSON.stringify(payload),
         }
       );
 
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.detail || `Failed to create dashboard (${res.status})`);
-      }
-
+      if (!res.ok) throw new Error("Failed to create dashboard");
       await fetchDashboards();
-    },
-    [projectId, fetchDashboards]
-  );
+  }, [projectId, fetchDashboards]);
 
-  const updateDashboard = useCallback(
-    async (
+  // Update Dashboard
+  const updateDashboard = useCallback(async (
       dashboardId: string,
-      payload: {
-        name?: string;
-        description?: string;
-        overrides?: any;
-        layout?: any;
-        isFavorite?: boolean;
-      }
+      payload: Partial<Dashboard>
     ) => {
       if (!projectId) return;
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) throw new Error("Not authenticated.");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
 
       const res = await fetch(
         `${API_BASE}/api/v1/projects/${projectId}/dashboards/${dashboardId}`,
@@ -131,21 +107,15 @@ export function useProjectDashboards(projectId: string | "") {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${session.access_token}`,
           },
           body: JSON.stringify(payload),
         }
       );
 
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.detail || `Failed to update dashboard (${res.status})`);
-      }
-
+      if (!res.ok) throw new Error("Failed to update dashboard");
       await fetchDashboards();
-    },
-    [projectId, fetchDashboards]
-  );
+  }, [projectId, fetchDashboards]);
 
   return {
     dashboards,

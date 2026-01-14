@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Loader2, Calendar, FileText } from "lucide-react";
 
+// Updated Imports
 import { NetworkSnapshotCard } from "./components/NetworkSnapshotCard";
 import { ScenarioAssumptionsCard } from "./components/ScenarioAssumptionsCard";
 import { RunSimulationCard } from "./components/RunSimulationCard";
@@ -15,7 +16,7 @@ import { useProjectMeta } from "./hooks/useProjectMeta";
 
 // Components
 import { ProposalInputsCard } from "./components/ProposalInputsCard";
-import { ProposalDataSummaryCard } from "./components/ProposalDataSummaryCard";
+// import { ProposalDataSummaryCard } from "./components/ProposalDataSummaryCard"; // Optional, hiding to clean up UI
 
 function ProposalInputsLoadingCard() {
   return (
@@ -69,10 +70,6 @@ export default function ProjectConfigPage() {
              </div>
           ) : (
             <div className="space-y-2">
-              {/* COLOR FIX:
-                 text-slate-900 = Blackish (Default/Light Mode)
-                 dark:text-white = White (Dark Mode Override)
-              */}
               <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
                 Proposal for{" "}
                 <span className="text-indigo-600 dark:text-indigo-400">
@@ -111,24 +108,31 @@ export default function ProjectConfigPage() {
       {/* --- CONTENT --- */}
       <div className="grid gap-8 lg:grid-cols-[1.7fr,1.3fr]">
         
+        {/* LEFT COLUMN: Inputs */}
         <div className="space-y-8">
           {loading ? (
             <ProposalInputsLoadingCard />
           ) : (
             <>
+              {/* 1. Green Blocks (Inputs) */}
               <ProposalInputsCard
                 proposal={data}
                 saving={saving}
                 onSave={patchProposalData}
               />
-              <ProposalDataSummaryCard proposal={data} />
             </>
           )}
+          
+          {/* 2. Forecast Strategy (Inflation/Deterioration) */}
           <ScenarioAssumptionsCard projectId={projectId} />
         </div>
 
+        {/* RIGHT COLUMN: Results & Actions */}
         <div className="space-y-8">
+          {/* 3. The Asset Profile (Visual Feedback) */}
           <NetworkSnapshotCard projectId={projectId} />
+          
+          {/* 4. The Simulation Control Center (Action) */}
           <div className="sticky top-6">
             <RunSimulationCard projectId={projectId} />
           </div>

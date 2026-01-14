@@ -1,4 +1,3 @@
-// app/(app)/projects/[projectId]/config/hooks/useSimulationRun.ts
 "use client";
 
 import { useState } from "react";
@@ -6,12 +5,20 @@ import { supabase } from "@/lib/supabaseClient";
 import { API_BASE_URL } from "@/lib/config";
 import { SimulationOutput } from "../types";
 
+// 👇 Define the shape of the options we expect
+export type SimulationOptions = {
+  startYearOverride?: number | null;
+  includePaved: boolean;
+  includeGravel: boolean;
+};
+
 export function useSimulationRun(projectId: string) {
   const [result, setResult] = useState<SimulationOutput | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const runSimulation = async () => {
+  // 👇 Update the function signature to accept 'options'
+  const runSimulation = async (options: SimulationOptions) => {
     setIsRunning(true);
     setError(null);
     setResult(null);
@@ -20,12 +27,16 @@ export function useSimulationRun(projectId: string) {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
 
-      // Trigger the calculation engine
       const res = await fetch(
         `${API_BASE_URL}/api/v1/projects/${projectId}/simulation/run`,
         {
           method: "POST",
-          headers: { Authorization: `Bearer ${session.access_token}` },
+          headers: { 
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}` 
+          },
+          // 👇 Send the options to the backend
+          body: JSON.stringify(options), 
         }
       );
 
