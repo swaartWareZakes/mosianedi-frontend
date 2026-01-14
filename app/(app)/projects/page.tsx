@@ -207,7 +207,7 @@ export default function ProjectsPage() {
           className="inline-flex items-center gap-2 rounded-xl bg-[var(--accent-color)] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:brightness-110 transition"
         >
           <Plus className="h-4 w-4" />
-          New Scenario
+          New Proposal
         </button>
       </div>
 
