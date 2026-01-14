@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import dynamic from "next/dynamic"; // 👈 Import dynamic
+import dynamic from "next/dynamic"; 
 import { supabase } from "@/lib/supabaseClient";
 import { AlertTriangle, Cuboid } from "lucide-react";
 
 import { useNetworkSnapshot } from "../projects/[projectId]/config/hooks/useNetworkSnapshot";
-import type { NetworkSnapshotUi } from "../projects/[projectId]/config/hooks/useNetworkSnapshot";
+// 👇 NEW TYPE
+import type { NetworkProfile } from "../projects/[projectId]/config/hooks/useNetworkSnapshot";
 
 import { NetworkProjectSelector } from "./components/NetworkProjectSelector";
 import { NetworkSnapshotSummary } from "./components/NetworkSnapshotSummary";
@@ -25,8 +26,7 @@ const RoadModel3D = dynamic(
   }
 );
 
-// const API_BASE = "http://127.0.0.1:8000";
-const API_BASE = `${process.env.NEXT_PUBLIC_API_URL}`;
+const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 
 type Project = {
   id: string;
@@ -54,9 +54,7 @@ export default function NetworkPage() {
       setProjectsError(null);
 
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+        const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
 
         if (!token) {
@@ -66,9 +64,7 @@ export default function NetworkPage() {
         }
 
         const res = await fetch(`${API_BASE}/api/v1/projects`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         });
 
         if (!res.ok) {
@@ -92,12 +88,11 @@ export default function NetworkPage() {
     };
 
     fetchProjects();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // --- Network snapshot for selected project -------------------------------
   const {
-    snapshot,
+    data: snapshot, // Remapped from 'data' to 'snapshot' variable name
     loading: snapshotLoading,
     error: snapshotError,
     refetch,
@@ -108,22 +103,18 @@ export default function NetworkPage() {
     [projects, selectedProjectId]
   );
 
-  const totalLengthForRatios: number =
-    snapshot?.totalNetworkLengthKm ?? snapshot?.totalLengthKm ?? 0;
-
   return (
     <div className="space-y-6 pb-20">
-      {/* Header -------------------------------------------------------------- */}
+      {/* Header */}
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Network</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400">
           Explore your road network across projects. Select a project to see
-          aggregated length, surface mix, condition, asset value and unit costs
-          from the latest master data upload.
+          aggregated length, surface mix, condition, asset value and unit costs.
         </p>
       </header>
 
-      {/* Project selector ---------------------------------------------------- */}
+      {/* Project selector */}
       <NetworkProjectSelector
         projects={projects}
         projectsLoading={projectsLoading}
@@ -135,14 +126,14 @@ export default function NetworkPage() {
         selectedProject={selectedProject}
       />
 
-      {/* Snapshot + breakdowns ---------------------------------------------- */}
+      {/* Snapshot + breakdowns */}
       {selectedProjectId ? (
         <>
           <section className="grid gap-6 xl:grid-cols-[1.4fr,1.2fr]">
             {/* Left column */}
             <div className="space-y-4">
               <NetworkSnapshotSummary
-                snapshot={snapshot as NetworkSnapshotUi | null}
+                snapshot={snapshot}
                 loading={snapshotLoading}
                 error={snapshotError}
               />
@@ -151,13 +142,12 @@ export default function NetworkPage() {
             {/* Right column */}
             <div className="space-y-4">
               <NetworkBreakdowns
-                snapshot={snapshot as NetworkSnapshotUi | null}
-                totalLengthForRatios={totalLengthForRatios}
+                snapshot={snapshot}
               />
             </div>
           </section>
 
-          {/* 3D Digital Twin Section ----------------------------------------- */}
+          {/* 3D Digital Twin Section */}
           <section className="mt-8 border-t border-slate-200/50 dark:border-slate-800/50 pt-8">
             <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
               <Cuboid className="h-5 w-5 text-indigo-500" />
@@ -193,9 +183,6 @@ export default function NetworkPage() {
                           onChange={(e) => setRoadWidth(Number(e.target.value))}
                           className="w-full accent-indigo-500 cursor-pointer"
                       />
-                      <p className="text-[10px] text-slate-400">
-                        Adjusting width impacts volume calculations for resurfacing and base layers.
-                      </p>
                   </div>
 
                   {/* Condition Control */}
@@ -219,13 +206,6 @@ export default function NetworkPage() {
                             roadIRI < 6 ? 'accent-amber-500' : 'accent-rose-500'
                           }`}
                       />
-                      <div className="flex justify-between text-[10px] text-slate-400">
-                        <span>New (0)</span>
-                        <span>Terminal (15)</span>
-                      </div>
-                      <p className="text-[10px] text-slate-400">
-                        Drag to simulate deterioration. Visual cues (color, roughness) update in real-time.
-                      </p>
                   </div>
               </div>
             </div>
