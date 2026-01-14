@@ -14,21 +14,29 @@ import {
   Legend,
   CartesianGrid,
 } from "recharts";
-import { AlertTriangle, BarChart3, TrendingUp, Activity } from "lucide-react";
-import type { NetworkSnapshotUi } from "../../config/hooks/useNetworkSnapshot";
+import { TrendingUp, Activity, Coins, Map, BarChart3 } from "lucide-react";
+
+// 👇 1. Import the CORRECT type from the correct path
+import type { NetworkProfile } from "../../config/hooks/useNetworkSnapshot";
 import type { SimulationOutput } from "../../config/types";
 import { SimulationCharts } from "./SimulationCharts";
 
 type Props = {
-  snapshot: NetworkSnapshotUi | null;
+  // 👇 2. Update prop type to NetworkProfile
+  snapshot: NetworkProfile | null;
   loading: boolean;
   error: string | null;
-  adjustedAssetValue: number | null; // Optional, can be null
+  adjustedAssetValue: number | null; 
   simulationResults: SimulationOutput | null;
 };
 
-const SURFACE_COLOURS = ["#38bdf8", "#64748b"]; // paved, gravel
-const CONDITION_COLOURS = ["#22c55e", "#fbbf24", "#f97373"]; // good, fair, poor
+const SURFACE_COLOURS = ["#6366f1", "#f59e0b"]; // Indigo (Paved), Amber (Gravel)
+
+function fmtCurrency(val: number) {
+  if (val >= 1_000_000_000) return `R ${(val / 1_000_000_000).toFixed(1)} bn`;
+  if (val >= 1_000_000) return `R ${(val / 1_000_000).toFixed(1)} m`;
+  return `R ${val.toLocaleString()}`;
+}
 
 export function DashboardMainPanel({
   snapshot,
@@ -37,8 +45,10 @@ export function DashboardMainPanel({
   adjustedAssetValue,
   simulationResults,
 }: Props) {
-  // ----- derived chart data --------------------------------------------------
-
+  
+  // ----- 1. Prepare Data for Charts ----------------------------------------
+  
+  // Surface Mix (Pie Chart)
   const surfaceMixData = useMemo(() => {
     if (!snapshot) return [];
     return [
@@ -47,340 +57,177 @@ export function DashboardMainPanel({
     ];
   }, [snapshot]);
 
-  const roadClassData = useMemo(() => {
-    if (!snapshot?.lengthByRoadClass) return [];
-    return snapshot.lengthByRoadClass.map((row) => ({
-      name: row.label,
-      km: row.lengthKm,
-    }));
+  // Estimate Asset Split (Simple estimation for visualization)
+  const assetMixData = useMemo(() => {
+    if (!snapshot) return [];
+    // R3.5m/km Paved, R0.25m/km Gravel (Engineering Estimates for viz)
+    const pavedVal = snapshot.pavedLengthKm * 3_500_000;
+    const gravelVal = snapshot.gravelLengthKm * 250_000;
+    return [
+      { name: "Paved Assets", value: pavedVal, fill: "#6366f1" },
+      { name: "Gravel Assets", value: gravelVal, fill: "#f59e0b" },
+    ];
   }, [snapshot]);
-
-  const totalLengthKm = snapshot?.totalLengthKm ?? 0;
-  const gravelShare =
-    snapshot && totalLengthKm > 0
-      ? (snapshot.gravelLengthKm / totalLengthKm) * 100
-      : 0;
 
   // --------------------------------------------------------------------------
 
+  if (loading) {
+    return (
+        <div className="p-8 text-center text-sm text-slate-500 bg-[var(--surface-bg)] rounded-xl border border-slate-200 dark:border-slate-800">
+            Loading dashboard analytics...
+        </div>
+    );
+  }
+
+  if (error) {
+    return (
+        <div className="p-8 text-center text-sm text-rose-500 bg-rose-50 dark:bg-rose-900/10 rounded-xl border border-rose-200 dark:border-rose-800">
+            Error loading dashboard: {error}
+        </div>
+    );
+  }
+
+  if (!snapshot) {
+    return (
+        <div className="p-8 text-center text-sm text-slate-500 bg-[var(--surface-bg)] rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+            No network data found. Please go to Configuration to set up your proposal.
+        </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* errors / loading */}
-      {loading && (
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          Loading dashboard data…
-        </p>
-      )}
-
-      {!loading && error && (
-        <div className="flex items-start gap-2 text-xs text-red-500">
-          <AlertTriangle className="h-4 w-4 mt-0.5" />
-          <span>{error}</span>
+      
+      {/* --- ROW 1: KPI CARDS --- */}
+      <div className="grid gap-4 md:grid-cols-4">
+        
+        {/* Total Length */}
+        <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-[var(--surface-bg)]">
+          <p className="text-[10px] uppercase tracking-wide text-slate-500 flex items-center gap-2">
+            <Map className="w-3 h-3" /> Total Length
+          </p>
+          <div className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+            {snapshot.totalLengthKm.toLocaleString()} <span className="text-sm font-medium text-slate-500">km</span>
+          </div>
+          <div className="mt-1 text-xs text-slate-400">
+            Current Network Size
+          </div>
         </div>
-      )}
 
-      {/* nothing yet */}
-      {!loading && !error && !snapshot && (
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          No snapshot yet. Upload and validate master data for this project on
-          the <span className="font-medium">Configuration</span> page to see
-          dashboards here.
-        </p>
-      )}
-
-      {/* main content */}
-      {!loading && snapshot && (
-        <>
-          {/* KPI strip */}
-          <div className="grid gap-3 md:grid-cols-4">
-            {/* Total length */}
-            <div className="rounded-2xl border border-slate-200/10 dark:border-slate-800/60 bg-[var(--surface-bg)] px-4 py-3 flex flex-col justify-between">
-              <p className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Total network length
-              </p>
-              <div className="mt-1 text-xl font-semibold">
-                {snapshot.totalLengthKm.toFixed(1)}{" "}
-                <span className="text-xs font-normal text-slate-400">km</span>
-              </div>
-              <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-500">
-                Based on latest master dataset
-              </p>
-            </div>
-
-            {/* Good share */}
-            <div className="rounded-2xl border border-slate-200/10 dark:border-slate-800/60 bg-[var(--surface-bg)] px-4 py-3 flex flex-col justify-between">
-              <p className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Good condition
-              </p>
-              <div className="mt-1 text-xl font-semibold text-emerald-400">
-                {snapshot.goodConditionPct.toFixed(0)}%
-              </div>
-              <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-500">
-                Share of network length in{" "}
-                <span className="font-medium">“good”</span> band
-              </p>
-            </div>
-
-            {/* Gravel share */}
-            <div className="rounded-2xl border border-slate-200/10 dark:border-slate-800/60 bg-[var(--surface-bg)] px-4 py-3 flex flex-col justify-between">
-              <p className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Gravel share
-              </p>
-              <div className="mt-1 text-xl font-semibold text-sky-400">
-                {gravelShare.toFixed(0)}%
-              </div>
-              <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-500">
-                {snapshot.gravelLengthKm.toFixed(1)} km of{" "}
-                {snapshot.totalLengthKm.toFixed(1)} km total
-              </p>
-            </div>
-
-            {/* Asset value */}
-            {snapshot.totalAssetValue != null && (
-              <div className="rounded-2xl border border-slate-200/10 dark:border-slate-800/60 bg-gradient-to-br from-slate-900/80 to-slate-900/30 px-4 py-3 flex flex-col justify-between">
-                <div className="flex items-center justify-between">
-                  <p className="text-[10px] uppercase tracking-wide text-slate-400">
-                    Network asset value
-                  </p>
-                  <TrendingUp className="h-4 w-4 text-emerald-400" />
-                </div>
-                <div className="mt-1 text-xl font-semibold text-slate-50">
-                  R {(snapshot.totalAssetValue / 1_000_000).toFixed(1)}{" "}
-                  <span className="text-xs font-normal text-slate-400">m</span>
-                </div>
-                {adjustedAssetValue != null && (
-                  <p className="mt-1 text-[10px] text-emerald-300">
-                    Scenario envelope:&nbsp;
-                    <span className="font-semibold">
-                      R {(adjustedAssetValue / 1_000_000).toFixed(1)} m
-                    </span>
-                  </p>
-                )}
-              </div>
-            )}
+        {/* Avg Condition */}
+        <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-[var(--surface-bg)]">
+          <p className="text-[10px] uppercase tracking-wide text-slate-500 flex items-center gap-2">
+            <Activity className="w-3 h-3" /> Network VCI
+          </p>
+          <div className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-baseline gap-2">
+            {snapshot.avgVci.toFixed(1)}
+            <span className={`text-xs px-1.5 py-0.5 rounded font-bold ${snapshot.avgVci < 50 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                {snapshot.avgVci < 50 ? 'POOR' : 'FAIR'}
+            </span>
           </div>
+          <div className="mt-1 text-xs text-slate-400">
+            Weighted Average Condition
+          </div>
+        </div>
 
-          {/* Current State Charts */}
-          <div className="grid gap-4 lg:grid-cols-2">
-            {/* Condition split: stacked bar */}
-            <div className="p-4 rounded-2xl bg-[var(--surface-bg)] border border-slate-200/10 dark:border-slate-800/60 space-y-2">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4 text-sky-400" />
-                  Current Condition Split
+        {/* Asset Value */}
+        <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-[var(--surface-bg)] col-span-2 bg-gradient-to-br from-slate-900 to-slate-800 text-white">
+          <div className="flex justify-between items-start">
+             <div>
+                <p className="text-[10px] uppercase tracking-wide text-slate-400 flex items-center gap-2">
+                    <Coins className="w-3 h-3 text-emerald-400" /> Current Replacement Cost
+                </p>
+                <div className="mt-2 text-3xl font-bold">
+                    {fmtCurrency(snapshot.assetValue)}
+                </div>
+                <div className="mt-1 text-xs text-slate-400">
+                    Total Estimated Value
+                </div>
+             </div>
+             {adjustedAssetValue && (
+                 <div className="text-right">
+                    <p className="text-[10px] text-slate-400">Scenario Adjusted</p>
+                    <p className="font-mono text-emerald-400 font-bold">
+                        {fmtCurrency(adjustedAssetValue)}
+                    </p>
+                 </div>
+             )}
+          </div>
+        </div>
+      </div>
+
+      {/* --- ROW 2: VISUAL BREAKDOWNS --- */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        
+        {/* CHART 1: Surface Mix */}
+        <div className="p-6 rounded-2xl bg-[var(--surface-bg)] border border-slate-200 dark:border-slate-800">
+          <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
+             <BarChart3 className="w-4 h-4 text-indigo-500" />
+             Network Surface Composition
+          </h2>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={surfaceMixData}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={60}
+                  outerRadius={80}
+                  paddingAngle={5}
+                >
+                  {surfaceMixData.map((_, idx) => (
+                    <Cell key={`cell-${idx}`} fill={SURFACE_COLOURS[idx]} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                    formatter={(val: number) => `${val.toLocaleString()} km`}
+                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                />
+                <Legend verticalAlign="bottom" height={36}/>
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* CHART 2: Asset Value Split */}
+        <div className="p-6 rounded-2xl bg-[var(--surface-bg)] border border-slate-200 dark:border-slate-800">
+          <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-emerald-500"/>
+            Estimated Value Distribution
+          </h2>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={assetMixData} layout="vertical" margin={{ left: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                <XAxis type="number" hide />
+                <YAxis dataKey="name" type="category" width={100} tick={{fontSize: 12}} />
+                <Tooltip 
+                    formatter={(val: number) => fmtCurrency(val)}
+                    cursor={{fill: 'transparent'}}
+                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                />
+                <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={32} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* --- ROW 3: SIMULATION RESULTS --- */}
+      {simulationResults && (
+        <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-800">
+            <div className="mb-6">
+                <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-indigo-500" />
+                    Strategic Forecast
                 </h2>
-                <span className="text-[10px] text-slate-500 dark:text-slate-500">
-                  % of total length
-                </span>
-              </div>
-              <div className="h-40">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={[
-                      {
-                        name: "Network",
-                        Good: snapshot.goodConditionPct,
-                        Fair: snapshot.fairConditionPct,
-                        Poor: snapshot.poorConditionPct,
-                      },
-                    ]}
-                    layout="vertical"
-                    stackOffset="expand"
-                    margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
-                  >
-                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                    <XAxis type="number" hide />
-                    <YAxis dataKey="name" type="category" hide />
-                    <Tooltip
-                      formatter={(value: any) => `${value.toFixed(0)}%`}
-                      contentStyle={{
-                        backgroundColor: "#1e293b",
-                        border: "none",
-                        fontSize: "12px",
-                        color: "#fff",
-                      }}
-                    />
-                    <Legend
-                      wrapperStyle={{ fontSize: "10px", marginTop: "5px" }}
-                    />
-                    <Bar
-                      dataKey="Good"
-                      stackId="a"
-                      fill={CONDITION_COLOURS[0]}
-                      barSize={20}
-                    />
-                    <Bar
-                      dataKey="Fair"
-                      stackId="a"
-                      fill={CONDITION_COLOURS[1]}
-                      barSize={20}
-                    />
-                    <Bar
-                      dataKey="Poor"
-                      stackId="a"
-                      fill={CONDITION_COLOURS[2]}
-                      barSize={20}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+                <p className="text-sm text-slate-500">
+                    Projected performance over the next {simulationResults.year_count} years.
+                </p>
             </div>
-
-            {/* Surface mix donut */}
-            <div className="p-4 rounded-2xl bg-[var(--surface-bg)] border border-slate-200/10 dark:border-slate-800/60 space-y-2">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold">Current Surface Mix</h2>
-                <span className="text-[10px] text-slate-500 dark:text-slate-500">
-                  Paved vs gravel (km)
-                </span>
-              </div>
-              <div className="h-40">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={surfaceMixData}
-                      dataKey="value"
-                      nameKey="name"
-                      innerRadius={40}
-                      outerRadius={65}
-                      paddingAngle={2}
-                    >
-                      {surfaceMixData.map((_, idx) => (
-                        <Cell
-                          key={`cell-surface-${idx}`}
-                          fill={SURFACE_COLOURS[idx % SURFACE_COLOURS.length]}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value: any) =>
-                        `${(value as number).toFixed(1)} km`
-                      }
-                      contentStyle={{
-                        backgroundColor: "#1e293b",
-                        border: "none",
-                        fontSize: "12px",
-                        color: "#fff",
-                      }}
-                    />
-                    <Legend
-                      wrapperStyle={{ fontSize: "10px" }}
-                      align="right"
-                      layout="vertical"
-                      verticalAlign="middle"
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-
-          {/* Road class chart + asset breakdown */}
-          <div className="grid gap-4 lg:grid-cols-[2.1fr,1.2fr]">
-            {/* Road class */}
-            <div className="p-4 rounded-2xl bg-[var(--surface-bg)] border border-slate-200/10 dark:border-slate-800/60 space-y-2">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold">Length by Road Class</h2>
-                <span className="text-[10px] text-slate-500 dark:text-slate-500">
-                  km per class
-                </span>
-              </div>
-              <div className="h-44">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={roadClassData}
-                    margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-                  >
-                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                    <XAxis
-                      dataKey="name"
-                      tick={{ fontSize: 10 }}
-                      tickMargin={4}
-                      axisLine={false}
-                    />
-                    <YAxis
-                      tick={{ fontSize: 10 }}
-                      axisLine={false}
-                      width={35}
-                    />
-                    <Tooltip
-                      formatter={(value: any) =>
-                        `${(value as number).toFixed(1)} km`
-                      }
-                      contentStyle={{
-                        backgroundColor: "#1e293b",
-                        border: "none",
-                        fontSize: "12px",
-                        color: "#fff",
-                      }}
-                    />
-                    <Bar
-                      dataKey="km"
-                      radius={[4, 4, 0, 0]}
-                      fill="#38bdf8"
-                      maxBarSize={36}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Asset value by category */}
-            <div className="p-4 rounded-2xl bg-[var(--surface-bg)] border border-slate-200/10 dark:border-slate-800/60 space-y-2">
-              <h2 className="text-sm font-semibold flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-emerald-400" />
-                Asset Value
-              </h2>
-              <div className="space-y-1.5 text-[11px]">
-                {snapshot.assetValueByCategory?.map((row) => (
-                  <div
-                    key={row.label}
-                    className="flex items-center justify-between gap-2"
-                  >
-                    <span className="text-slate-400">{row.label}</span>
-                    <span className="font-mono">
-                      R {(row.value / 1_000_000).toFixed(1)} m
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <p className="mt-2 text-[10px] text-slate-500 dark:text-slate-500 border-t border-slate-700/50 pt-2">
-                Snapshot as at{" "}
-                <span className="font-mono">
-                  {snapshot.calculatedAt
-                    ? new Date(snapshot.calculatedAt).toLocaleString("en-ZA")
-                    : "latest master data upload"}
-                </span>
-              </p>
-            </div>
-          </div>
-
-          {/* SIMULATION RESULTS (FUTURE FORECAST) */}
-          {simulationResults && (
-            <div className="mt-8 border-t border-slate-200/10 dark:border-slate-800/60 pt-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-lg font-semibold flex items-center gap-2">
-                    <Activity className="h-5 w-5 text-blue-500" />
-                    Future Forecast ({simulationResults.year_count} Years)
-                  </h2>
-                  <p className="text-sm text-slate-500">
-                    Projected performance based on current scenario settings.
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] uppercase text-slate-500">Total Lifecycle Cost</p>
-                  <p className="text-xl font-mono font-bold text-emerald-500">
-                    R {(simulationResults.total_cost_npv / 1_000_000).toFixed(1)} M
-                  </p>
-                </div>
-              </div>
-              
-              {/* Render the Charts Component */}
-              <SimulationCharts results={simulationResults} />
-            </div>
-          )}
-        </>
+            <SimulationCharts results={simulationResults} />
+        </div>
       )}
     </div>
   );

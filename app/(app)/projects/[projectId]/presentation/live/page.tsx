@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import dynamic from "next/dynamic"; // 1. Use Dynamic Import
+import dynamic from "next/dynamic"; 
 import { useSearchParams, useRouter, useParams } from "next/navigation";
 import { 
   X, 
@@ -18,8 +18,6 @@ import { useNetworkSnapshot } from "../../../[projectId]/config/hooks/useNetwork
 import { useSimulationResults } from "../../../[projectId]/dashboard/hooks/useSimulationResults";
 
 // --- 2. DYNAMIC MAP COMPONENT ---
-// We import the LiveMap component dynamically so it only loads in the browser.
-// This fixes "window is not defined" errors common with Leaflet.
 const LiveMap = dynamic(
   () => import("./components/LiveMap"),
   { 
@@ -29,13 +27,12 @@ const LiveMap = dynamic(
 );
 
 // --- 3. DEMO DATA FOR MAP ---
-// These segments match the mock coordinates in LiveMap.tsx
 const DEMO_SEGMENTS = [
-    { segment_id: "S1", road_id: "R101", from_node: "N1", to_node: "N2", iri: 2.1, surface_type: "Paved" }, // Pta -> Centurion
-    { segment_id: "S2", road_id: "R101", from_node: "N2", to_node: "N3", iri: 2.8, surface_type: "Paved" }, // Centurion -> Midrand
-    { segment_id: "S3", road_id: "P201", from_node: "P1", to_node: "P2", iri: 4.5, surface_type: "Gravel" }, // East -> Rietvlei
-    { segment_id: "S4", road_id: "P201", from_node: "P2", to_node: "P3", iri: 6.2, surface_type: "Gravel" }, // Rietvlei -> Clayville
-    { segment_id: "S5", road_id: "L305", from_node: "L1", to_node: "L2", iri: 3.2, surface_type: "Paved" }, // West
+    { segment_id: "S1", road_id: "R101", from_node: "N1", to_node: "N2", iri: 2.1, surface_type: "Paved" }, 
+    { segment_id: "S2", road_id: "R101", from_node: "N2", to_node: "N3", iri: 2.8, surface_type: "Paved" }, 
+    { segment_id: "S3", road_id: "P201", from_node: "P1", to_node: "P2", iri: 4.5, surface_type: "Gravel" }, 
+    { segment_id: "S4", road_id: "P201", from_node: "P2", to_node: "P3", iri: 6.2, surface_type: "Gravel" }, 
+    { segment_id: "S5", road_id: "L305", from_node: "L1", to_node: "L2", iri: 3.2, surface_type: "Paved" }, 
 ];
 
 export default function PresentationLivePage() {
@@ -47,7 +44,8 @@ export default function PresentationLivePage() {
   const title = searchParams.get("title") || "Strategic Review";
 
   // Data Hooks
-  const { snapshot } = useNetworkSnapshot(projectId || "");
+  // 👇 FIX: Destructure 'data' and rename it to 'snapshot'
+  const { data: snapshot } = useNetworkSnapshot(projectId || "");
   const { results } = useSimulationResults(projectId || "");
 
   // Presentation State
@@ -119,7 +117,7 @@ export default function PresentationLivePage() {
                     Network Master Plan
                 </h2>
                 <div className="flex gap-8 justify-center text-left pt-8">
-                    <StatCard label="Total Asset Value" value={`R ${((snapshot?.totalAssetValue || 0) / 1000000).toFixed(1)}M`} />
+                    <StatCard label="Total Asset Value" value={`R ${((snapshot?.assetValue || 0) / 1000000).toFixed(1)}M`} />
                     <StatCard label="Network Size" value={`${snapshot?.totalLengthKm.toFixed(1)} km`} />
                     <StatCard label="Scenario" value={results ? `${results.year_count} Years` : "Baseline"} color="text-emerald-400" />
                 </div>
@@ -138,17 +136,10 @@ export default function PresentationLivePage() {
                         <span className="text-emerald-400 font-bold">Green</span> is Good, <span className="text-rose-500 font-bold">Red</span> is Critical.
                     </p>
                     <div className="space-y-3 bg-black/30 p-4 rounded-xl border border-white/5">
+                        {/* We use snapshot.avgVci as a proxy for the 'Good/Fair/Poor' split here since we simplified the data structure */}
                         <div className="flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500"/> Good</div>
-                            <span className="font-mono text-emerald-400">{snapshot?.goodConditionPct.toFixed(0)}%</span>
-                        </div>
-                        <div className="flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-amber-500"/> Fair</div>
-                            <span className="font-mono text-amber-400">{snapshot?.fairConditionPct.toFixed(0)}%</span>
-                        </div>
-                        <div className="flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-rose-500"/> Poor</div>
-                            <span className="font-mono text-rose-400">{snapshot?.poorConditionPct.toFixed(0)}%</span>
+                            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500"/> Avg VCI</div>
+                            <span className="font-mono text-emerald-400">{snapshot?.avgVci.toFixed(1)}</span>
                         </div>
                     </div>
                 </div>
@@ -173,10 +164,10 @@ export default function PresentationLivePage() {
                             <div 
                                 key={i} 
                                 className="flex-1 bg-purple-500/50 hover:bg-purple-400 transition-all rounded-t-sm relative group" 
-                                style={{ height: `${Math.min(100, (d.avg_condition_index / 8) * 100)}%` }}
+                                style={{ height: `${Math.min(100, (d.avg_condition_index / 100) * 100)}%` }}
                             >
                                 <div className="absolute -top-10 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 bg-white text-black text-[10px] px-2 py-1 rounded transition-opacity font-bold whitespace-nowrap z-50">
-                                    Year {d.year}: IRI {d.avg_condition_index}
+                                    Year {d.year}: VCI {d.avg_condition_index}
                                 </div>
                             </div>
                         ))}
