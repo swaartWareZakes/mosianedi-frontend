@@ -35,7 +35,7 @@ function getProvinceFromProject(project: Project | null): string {
     const text = (project.project_name + " " + (project.description || "")).toLowerCase();
     
     if (text.includes("free state") || text.includes("freestate")) return "Free State";
-    if (text.includes("limpopo")) return "Limpopo"; // (Add coordinates in Map if needed)
+    if (text.includes("limpopo")) return "Limpopo"; 
     if (text.includes("natal") || text.includes("kzn")) return "KZN";
     
     return "Gauteng"; // Default
@@ -118,7 +118,6 @@ export default function NetworkPage() {
              </div>
              
              <div className="h-[550px] w-full rounded-2xl border border-slate-200 dark:border-slate-800 shadow-lg overflow-hidden relative">
-                 {/* 👇 PASS THE PROVINCE PROP */}
                  <LiveMap 
                     province={activeProvince} 
                     onSegmentSelect={(seg) => {
@@ -141,8 +140,9 @@ export default function NetworkPage() {
                     Asset Digital Twin
                  </h3>
              </div>
-             <div className="h-[600px] w-full rounded-2xl border border-slate-200 dark:border-slate-800 shadow-lg overflow-hidden bg-[var(--surface-bg)]">
-                <NetworkInspector selectedSegment={selectedSegmentData} />
+             {/* 👇 INCREASED HEIGHT TO 800px (approx 30% increase from 600px) */}
+             <div className="h-[800px] w-full rounded-2xl border border-slate-200 dark:border-slate-800 shadow-lg overflow-hidden bg-[var(--surface-bg)]">
+                <NetworkInspector selectedSegment={selectedSegmentData} province={activeProvince}/>
              </div>
           </section>
 
