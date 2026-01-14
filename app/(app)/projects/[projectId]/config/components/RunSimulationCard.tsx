@@ -26,7 +26,7 @@ export function RunSimulationCard({ projectId }: { projectId: string }) {
   const baseYear = meta?.start_year || new Date().getFullYear() + 1;
   const activeStartYear = startYear || baseYear;
 
-  // FIX: handleRun accesses state directly, doesn't need args
+  // FIX: Pass the state variables into the hook function
   const handleRun = async () => {
     await runSimulation({
         startYearOverride: activeStartYear,
