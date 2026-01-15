@@ -1,10 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { MapContainer, TileLayer, Polyline, Tooltip, useMap } from "react-leaflet";
 import L from "leaflet";
 
-// --- 1. Fix Leaflet Icons in Next.js ---
 // @ts-ignore
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -13,80 +12,101 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// --- 2. Mock Coordinates (Gauteng Demo) ---
-// In the future, these will come from your uploaded GIS/KML files.
-const MOCK_NODES: Record<string, [number, number]> = {
-  "N1": [-25.7479, 28.2293], // Pretoria Central
-  "N2": [-25.8640, 28.1887], // Centurion
-  "N3": [-26.0123, 28.1293], // Midrand
-  "P1": [-25.7689, 28.3293], // Pretoria East
-  "P2": [-25.8989, 28.2993], // Rietvlei
-  "P3": [-25.9989, 28.2593], // Clayville
-  "L1": [-25.7313, 28.1698], // Pretoria West
-  "L2": [-25.7113, 28.1498], 
+// --- PROVINCE CONFIG (ALL 9 PROVINCES) ---
+const PROVINCES = {
+    "Gauteng": { center: [-26.1076, 28.0567] as [number, number], zoom: 10 },
+    "Free State": { center: [-28.4793, 26.1008] as [number, number], zoom: 8 },
+    "Western Cape": { center: [-33.55, 19.50] as [number, number], zoom: 8 },
+    "KwaZulu-Natal": { center: [-29.0, 30.5] as [number, number], zoom: 8 },
+    "Eastern Cape": { center: [-32.0, 26.5] as [number, number], zoom: 8 },
+    "Limpopo": { center: [-24.0, 29.5] as [number, number], zoom: 8 },
+    "Mpumalanga": { center: [-25.5, 30.0] as [number, number], zoom: 8 },
+    "North West": { center: [-26.0, 26.0] as [number, number], zoom: 8 },
+    "Northern Cape": { center: [-29.5, 21.0] as [number, number], zoom: 7 },
+    "Default": { center: [-29.0, 26.0] as [number, number], zoom: 6 } // SA Center
 };
 
-// --- 3. Helper for Colors ---
+function MapController({ center, zoom }: { center: [number, number], zoom: number }) {
+    const map = useMap();
+    useEffect(() => {
+        map.flyTo(center, zoom, { duration: 2.5, easeLinearity: 0.5 });
+    }, [center, zoom, map]);
+    return null;
+}
+
 const getConditionColor = (iri: number) => {
-  if (iri < 2.5) return "#10b981"; // Emerald (Good)
-  if (iri < 5.0) return "#f59e0b"; // Amber (Fair)
-  return "#ef4444"; // Red (Poor)
+  if (iri < 3) return "#10b981"; // Good (Emerald)
+  if (iri < 6) return "#f59e0b"; // Fair (Amber)
+  return "#ef4444"; // Poor (Red)
 };
 
-// --- 4. Component ---
-export default function LiveMap({ activeLayer, segments }: { activeLayer: string, segments: any[] }) {
+export default function LiveMap({ activeLayer, segments, province = "Gauteng" }: any) {
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  useEffect(() => setMounted(true), []);
 
-  if (!mounted) return <div className="w-full h-full bg-slate-950 animate-pulse" />;
+  const config = useMemo(() => {
+      // Find matching key, or default
+      const key = Object.keys(PROVINCES).find(k => province.includes(k)) || "Default";
+      return PROVINCES[key as keyof typeof PROVINCES];
+  }, [province]);
 
-  // Transform segments into map lines
-  const mapLines = segments.map((seg, i) => {
-    // If node ID exists in mock, use it. Otherwise, offset slightly so they show up on map.
-    const start = MOCK_NODES[seg.from_node] || [-25.7 + (i * 0.02), 28.2 + (i * 0.02)];
-    const end = MOCK_NODES[seg.to_node] || [-25.75 + (i * 0.03), 28.25 + (i * 0.03)];
-    
-    return {
-      id: seg.segment_id || `seg-${i}`,
-      positions: [start, end] as [number, number][],
-      iri: seg.iri || 3.0,
-      name: `${seg.road_id || 'Road'}: ${seg.from_node} to ${seg.to_node}`,
-      surface: seg.surface_type || 'Unknown'
-    };
-  });
+  const displaySegments = useMemo(() => {
+      if (segments && segments.length > 0) return segments;
+      
+      // GENERATE MOCK DATA AROUND THE CHOSEN PROVINCE
+      return Array.from({ length: 50 }).map((_, i) => {
+          // Spread logic varies by zoom level slightly
+          const spread = config.zoom < 8 ? 1.5 : 0.5;
+          
+          const lat = config.center[0] + (Math.random() - 0.5) * spread;
+          const lng = config.center[1] + (Math.random() - 0.5) * spread;
+          
+          return {
+              id: i,
+              positions: [[lat, lng], [lat + (Math.random() - 0.02), lng + (Math.random() - 0.02)]],
+              iri: 1 + Math.random() * 8, // Random IRI 1-9
+              name: `Route R${100 + i}`
+          };
+      });
+  }, [segments, config]);
+
+  if (!mounted) return <div className="w-full h-full bg-slate-950" />;
 
   return (
     <MapContainer 
-      center={[-25.8640, 28.1887]} 
-      zoom={10} 
-      style={{ height: "100%", width: "100%", background: "#020617" }} // Slate-950
+      center={config.center} 
+      zoom={config.zoom} 
+      style={{ height: "100%", width: "100%", background: "#020617" }} 
       zoomControl={false}
-      scrollWheelZoom={false} // Prevent accidental zooming during presentation
+      scrollWheelZoom={false}
+      dragging={true}
     >
-      {/* Dark Matter Tiles for "Command Center" look */}
+      {/* Dark Matter - No Labels for cleaner look */}
       <TileLayer
-        attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+        attribution='&copy; CARTO'
+        url="https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png"
       />
+      {/* Labels on top */}
+      <TileLayer
+        url="https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png"
+      />
+      
+      <MapController center={config.center} zoom={config.zoom} />
 
-      {mapLines.map((line) => (
+      {displaySegments.map((line: any) => (
         <Polyline
           key={line.id}
           positions={line.positions}
           pathOptions={{
-            // Logic: Blue for intro/default, Colored for Condition view
-            color: activeLayer === 'condition' ? getConditionColor(line.iri) : '#6366f1', 
-            weight: activeLayer === 'condition' ? 6 : 3,
-            opacity: activeLayer === 'condition' ? 0.9 : 0.5,
+            color: activeLayer === 'condition' ? getConditionColor(line.iri) : '#3b82f6', // Blue default
+            weight: activeLayer === 'condition' ? 3 : 1.5,
+            opacity: activeLayer === 'condition' ? 0.8 : 0.3,
           }}
         >
           <Tooltip sticky className="custom-leaflet-tooltip">
             <div className="font-bold text-xs">{line.name}</div>
-            <div className="text-xs">IRI: {line.iri.toFixed(1)}</div>
-            <div className="text-xs opacity-70">{line.surface}</div>
+            <div className="text-xs">IRI: {line.iri?.toFixed(1)}</div>
           </Tooltip>
         </Polyline>
       ))}
