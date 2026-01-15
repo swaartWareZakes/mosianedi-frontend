@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { API_BASE_URL } from "@/lib/config";
+// Ensure this path matches your actual config file, or use process.env.NEXT_PUBLIC_API_URL
+import { API_BASE_URL } from "@/lib/config"; 
 import { SimulationOutput } from "../types";
 
-// 👇 Define the shape of the options we expect
+// 👇 Define the shape of the options we expect from the UI
 export type SimulationOptions = {
   startYearOverride?: number | null;
   includePaved: boolean;
@@ -17,7 +18,6 @@ export function useSimulationRun(projectId: string) {
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 👇 Update the function signature to accept 'options'
   const runSimulation = async (options: SimulationOptions) => {
     setIsRunning(true);
     setError(null);
@@ -27,6 +27,13 @@ export function useSimulationRun(projectId: string) {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
 
+      // 👇 IMPORTANT: Map Frontend (camelCase) to Backend (snake_case)
+      const payload = {
+        start_year: options.startYearOverride,
+        scope_paved: options.includePaved,
+        scope_gravel: options.includeGravel
+      };
+
       const res = await fetch(
         `${API_BASE_URL}/api/v1/projects/${projectId}/simulation/run`,
         {
@@ -35,8 +42,7 @@ export function useSimulationRun(projectId: string) {
             "Content-Type": "application/json",
             Authorization: `Bearer ${session.access_token}` 
           },
-          // 👇 Send the options to the backend
-          body: JSON.stringify(options), 
+          body: JSON.stringify(payload), // Send the mapped payload
         }
       );
 
