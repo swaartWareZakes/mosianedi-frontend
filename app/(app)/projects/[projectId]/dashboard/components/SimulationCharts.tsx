@@ -52,8 +52,11 @@ export function SimulationCharts({ results }: Props) {
       {/* Chart 2: Cost Profile */}
       <div className="p-4 rounded-2xl bg-[var(--surface-bg)] border border-slate-200/10 dark:border-slate-800/60 space-y-2">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold flex items-center gap-2">
-            <DollarSign className="h-4 w-4 text-emerald-500" />
+        <h2 className="text-sm font-semibold flex items-center gap-2">
+            {/* Replaced DollarSign with a styled 'R' */}
+            <span className="h-4 w-4 flex items-center justify-center text-emerald-500 font-bold">
+              R
+            </span>
             Annual Expenditure
           </h2>
           <span className="text-[10px] text-slate-500">Maintenance Budget Needed</span>
