@@ -26,20 +26,9 @@ type Project = {
   id: string;
   project_name: string;
   description?: string;
-  // ... other fields
+  province?: string; // Added province field from DB
+  created_at?: string; // Added created_at field to fix sorting error
 };
-
-// 👇 HELPER: Guess Province from Name
-function getProvinceFromProject(project: Project | null): string {
-    if (!project) return "Gauteng";
-    const text = (project.project_name + " " + (project.description || "")).toLowerCase();
-    
-    if (text.includes("free state") || text.includes("freestate")) return "Free State";
-    if (text.includes("limpopo")) return "Limpopo"; 
-    if (text.includes("natal") || text.includes("kzn")) return "KZN";
-    
-    return "Gauteng"; // Default
-}
 
 export default function NetworkPage() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -63,22 +52,54 @@ export default function NetworkPage() {
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
         if (!token) { setProjectsError("Please log in."); return; }
+        
         const res = await fetch(`${API_BASE}/api/v1/projects`, { headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) throw new Error("Failed to load projects");
+        
         const data: Project[] = await res.json();
-        setProjects(data);
-        if (data.length > 0 && !selectedProjectId) setSelectedProjectId(data[0].id);
+        // Sort by newest first
+        const sorted = data.sort((a, b) => new Date(b.created_at || "").getTime() - new Date(a.created_at || "").getTime());
+        setProjects(sorted);
+        
+        if (sorted.length > 0 && !selectedProjectId) setSelectedProjectId(sorted[0].id);
       } catch (err: any) { setProjectsError(err.message); } 
       finally { setProjectsLoading(false); }
     };
     fetchProjects();
-  }, []);
+  }, []); //
 
   const { data: snapshot, loading: snapshotLoading, error: snapshotError, refetch } = useNetworkSnapshot(selectedProjectId || "");
-  const selectedProject = useMemo(() => projects.find((p) => p.id === selectedProjectId) || null, [projects, selectedProjectId]);
+  const selectedProject = useMemo(() => projects.find((p) => p.id === selectedProjectId) || null, [projects, selectedProjectId]); //
   
-  // 👇 Determine Active Province
-  const activeProvince = useMemo(() => getProvinceFromProject(selectedProject), [selectedProject]);
+  // --- ROBUST PROVINCE DETECTION ---
+  const activeProvince = useMemo(() => {
+      if (!selectedProject) return "Gauteng";
+
+      // 1. Normalize strings for comparison
+      const dbProvince = (selectedProject.province || "").trim();
+      const nameText = (selectedProject.project_name || "").toLowerCase();
+      const combinedText = `${dbProvince.toLowerCase()} ${nameText}`; //
+
+      // 2. Exact Match Check (DB Field)
+      if (dbProvince === "Western Cape") return "Western Cape";
+      if (dbProvince === "Eastern Cape") return "Eastern Cape";
+      if (dbProvince === "Northern Cape") return "Northern Cape";
+      if (dbProvince === "North West") return "North West";
+      if (dbProvince === "Free State") return "Free State";
+      if (dbProvince === "KwaZulu-Natal") return "KwaZulu-Natal";
+
+      // 3. Fuzzy Match Check (Name Analysis)
+      if (combinedText.includes("western")) return "Western Cape";
+      if (combinedText.includes("eastern")) return "Eastern Cape";
+      if (combinedText.includes("northern")) return "Northern Cape";
+      if (combinedText.includes("north west") || combinedText.includes("northwest")) return "North West";
+      if (combinedText.includes("free state") || combinedText.includes("freestate")) return "Free State";
+      if (combinedText.includes("natal") || combinedText.includes("kzn")) return "KwaZulu-Natal";
+      if (combinedText.includes("limpopo")) return "Limpopo";
+      if (combinedText.includes("mpumala")) return "Mpumalanga"; 
+      
+      return "Gauteng"; // Fallback
+  }, [selectedProject]); //
 
   return (
     <div className="space-y-8 pb-20">
@@ -140,7 +161,7 @@ export default function NetworkPage() {
                     Asset Digital Twin
                  </h3>
              </div>
-             {/* 👇 INCREASED HEIGHT TO 800px (approx 30% increase from 600px) */}
+             {/* Height set to 800px for immersive view */}
              <div className="h-[800px] w-full rounded-2xl border border-slate-200 dark:border-slate-800 shadow-lg overflow-hidden bg-[var(--surface-bg)]">
                 <NetworkInspector selectedSegment={selectedSegmentData} province={activeProvince}/>
              </div>

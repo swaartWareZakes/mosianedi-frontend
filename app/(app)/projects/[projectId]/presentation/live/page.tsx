@@ -10,6 +10,15 @@ import { useSimulationResults } from "../../../[projectId]/dashboard/hooks/useSi
 
 const LiveMap = dynamic(() => import("./components/LiveMap"), { ssr: false });
 
+// Helper to format big money
+const formatCurrency = (value: number) => {
+    if (!value) return "0m";
+    if (value >= 1000000000) {
+        return `${(value / 1000000000).toFixed(1)}bn`;
+    }
+    return `${(value / 1000000).toFixed(0)}m`;
+};
+
 export default function PresentationLivePage() {
   const router = useRouter();
   const params = useParams();
@@ -43,20 +52,15 @@ export default function PresentationLivePage() {
   const chartData = useMemo(() => {
       const currentVci = snapshot?.avgVci || 60;
       
-      // Scenario A: Do Nothing (Simulated Decay: -4 VCI per year)
       const doNothingPoints = Array.from({ length: duration + 1 }).map((_, i) => {
           const val = Math.max(0, currentVci - (i * 4)); 
           return [i, val];
       });
 
-      // Scenario B: Intervention (From Real Simulation Results)
       const interventionPoints = results?.yearly_data 
           ? results.yearly_data.map((d: any, i: number) => [i, d.avg_condition_index])
-          : [[0, currentVci], [duration, Math.min(100, currentVci + 5)]]; // Fallback line
+          : [[0, currentVci], [duration, Math.min(100, currentVci + 5)]];
 
-      // Convert to SVG Path Commands (ViewBox: 0 0 600 300)
-      // X Scale: i * (600 / duration)
-      // Y Scale: 300 - (val * 3)  <-- Inverts Y so 100 is top, 0 is bottom
       const toPath = (points: number[][]) => {
           return "M" + points.map(([x, y]) => 
               `${x * (600 / duration)},${300 - (y * 3)}`
@@ -138,7 +142,7 @@ export default function PresentationLivePage() {
                     <StatBox label="Asset Value" value={`R${((snapshot?.assetValue || 0)/1e9).toFixed(1)}bn`} />
                     <StatBox label="Network Size" value={`${(snapshot?.totalLengthKm || 0).toFixed(0)} km`} />
                     <StatBox label="Current VCI" value={(snapshot?.avgVci || 0).toFixed(0)} color={(snapshot?.avgVci || 0) < 50 ? 'text-rose-400' : 'text-emerald-400'} />
-                    <StatBox label="Backlog Estimate" value={`R${((results?.total_cost_npv || 0)/1e6).toFixed(0)}m`} color="text-amber-400" />
+                    <StatBox label="Backlog Estimate" value={`R${formatCurrency(results?.total_cost_npv || 0)}`} color="text-amber-400" />
                 </div>
             </div>
         )}
@@ -167,7 +171,7 @@ export default function PresentationLivePage() {
                     <CheckCircle2 className="h-5 w-5" /> Recommended Allocation
                 </div>
                 <h2 className="text-[120px] font-black text-white mb-2 tracking-tighter leading-none drop-shadow-2xl">
-                    R {((results?.total_cost_npv || 0) / 1000000).toFixed(0)}m
+                    R {formatCurrency(results?.total_cost_npv || 0)}
                 </h2>
                 <p className="text-3xl text-slate-400 max-w-3xl mx-auto leading-normal font-light">
                     Required for <span className="text-white font-bold">FY{startYear}/{startYear+1}</span> Preventive Maintenance.
