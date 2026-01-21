@@ -1,9 +1,8 @@
-/* --- ./components/sidebar.tsx --- */
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { NavLink } from "./nav-link";
+import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabaseClient";
 import {
@@ -11,12 +10,18 @@ import {
   FolderKanban,
   User2,
   Settings,
-  Menu,
-  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  ChevronsLeft,
+  ChevronsRight,
   Map,
   BarChart2,
   LogOut,
-  Presentation, // 👈 new icon
+  Presentation,
+  Clock,
+  FileText,
+  ShieldAlert,
+  Wallet
 } from "lucide-react";
 
 type Profile = {
@@ -27,161 +32,274 @@ type Profile = {
   title: string;
 };
 
-const getInitials = (first?: string, last?: string) => {
-  const f = first?.trim()?.[0] ?? "";
-  const l = last?.trim()?.[0] ?? "";
-  return (f + l).toUpperCase();
-};
+// --- 1. NAV GROUP (Accordion) ---
+function NavGroup({ 
+    label, 
+    icon, 
+    active, 
+    expanded, 
+    onToggle, 
+    children, 
+    sidebarOpen 
+}: any) {
+    // If sidebar is closed, we render a simple link that opens the sidebar or tooltip
+    if (!sidebarOpen) {
+        return (
+            <div className="relative group">
+                <button
+                    onClick={onToggle} // Clicking while closed opens sidebar
+                    className={cn(
+                        "flex w-full items-center justify-center p-3 rounded-xl transition-colors",
+                        active 
+                           ? "bg-[var(--accent-color)] text-white shadow-md" 
+                           : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 dark:text-slate-400"
+                    )}
+                >
+                    {icon}
+                </button>
+                {/* Tooltip on Hover */}
+                <div className="absolute left-16 top-2 bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 whitespace-nowrap">
+                    {label}
+                </div>
+            </div>
+        );
+    }
 
-function SidebarComponent() {
+    return (
+        <div className="space-y-1">
+            <button
+                onClick={onToggle}
+                className={cn(
+                    "w-full flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                    active 
+                        ? "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white" 
+                        : "text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
+                )}
+            >
+                <div className="flex items-center gap-3">
+                    {icon && <span className={cn("shrink-0", active ? "text-[var(--accent-color)]" : "")}>{icon}</span>}
+                    <span className="truncate">{label}</span>
+                </div>
+                {expanded ? <ChevronDown className="h-4 w-4 opacity-50"/> : <ChevronRight className="h-4 w-4 opacity-50"/>}
+            </button>
+            
+            {/* Sub Menu */}
+            {expanded && (
+                <div className="ml-4 pl-3 border-l-2 border-slate-100 dark:border-slate-800 space-y-1 mt-1 animate-in slide-in-from-left-1 duration-200">
+                    {children}
+                </div>
+            )}
+        </div>
+    );
+}
+
+// --- 2. NAV ITEM (Sub-Link) ---
+function NavItem({ href, label, icon }: any) {
+    const pathname = usePathname();
+    const isActive = pathname === href;
+    
+    return (
+        <Link 
+            href={href}
+            className={cn(
+                "flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg transition-colors",
+                isActive 
+                    ? "bg-[var(--accent-color)]/10 text-[var(--accent-color)]" 
+                    : "text-slate-500 hover:text-slate-900 dark:hover:text-slate-200"
+            )}
+        >
+            {icon && <span className="w-3 h-3 opacity-70">{icon}</span>}
+            {label}
+        </Link>
+    );
+}
+
+// --- 3. SIMPLE LINK (Single Level) ---
+function SimpleLink({ href, icon, label, active, open }: any) {
+    return (
+        <Link
+            href={href}
+            className={cn(
+                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all group relative",
+                active 
+                    ? "bg-[var(--accent-color)] text-white shadow-md shadow-indigo-500/20" 
+                    : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200",
+                !open && "justify-center"
+            )}
+        >
+            {icon}
+            {open ? (
+                <span>{label}</span>
+            ) : (
+                <div className="absolute left-14 bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-opacity">
+                    {label}
+                </div>
+            )}
+        </Link>
+    );
+}
+
+// --- MAIN COMPONENT ---
+export function Sidebar() {
   const [open, setOpen] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
+  
+  // Accordion States
+  const [projectsOpen, setProjectsOpen] = useState(true);
+  const [reportsOpen, setReportsOpen] = useState(false);
+  
   const router = useRouter();
+  const pathname = usePathname();
 
+  // Load Profile
   useEffect(() => {
     const loadProfile = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("user_id", user.id)
-        .single();
-
-      if (!error && data) {
-        setProfile(data as Profile);
-      }
+      const { data } = await supabase.from("profiles").select("*").eq("user_id", user.id).single();
+      if (data) setProfile(data as Profile);
     };
-
     loadProfile();
   }, []);
 
+  // Handle Logout
   const handleLogout = async () => {
-    try {
-      setLoggingOut(true);
-      await supabase.auth.signOut();
-      router.replace("/login");
-    } finally {
-      setLoggingOut(false);
-    }
+    setLoggingOut(true);
+    await supabase.auth.signOut();
+    router.replace("/login");
   };
 
-  const initials = getInitials(profile?.first_name, profile?.last_name);
+  const initials = profile ? (profile.first_name[0] + profile.last_name[0]).toUpperCase() : "M";
+
+  // Toggle Function
+  const toggleSidebar = () => {
+      setOpen(!open);
+      // Auto-collapse groups when closing sidebar for cleaner look
+      if (open) { 
+          setProjectsOpen(false); 
+          setReportsOpen(false); 
+      }
+  };
 
   return (
     <aside
       className={cn(
-        "flex h-full flex-col bg-[var(--sidebar-bg)] shadow-lg rounded-2xl transition-all",
-        open ? "w-68 max-w-xs" : "w-20"
+        "flex h-full flex-col bg-[var(--sidebar-bg)] border-r border-slate-200 dark:border-slate-800 transition-all duration-300 ease-in-out z-20 shrink-0",
+        open ? "w-64" : "w-20"
       )}
     >
-      {/* Profile + collapse */}
-      <div className="flex items-center justify-between px-4 py-4">
+      {/* 1. HEADER BRANDING */}
+      <div className={cn("flex items-center h-16 px-4 border-b border-slate-100 dark:border-slate-800/50", open ? "justify-between" : "justify-center")}>
         {open ? (
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent-color)] text-[12px] font-semibold text-white shrink-0">
-              {initials || "?"}
-            </div>
-            <div className="truncate">
-              <div className="truncate text-sm font-semibold text-[var(--foreground)]">
-                {profile
-                  ? `${profile.first_name} ${profile.last_name}`
-                  : "Loading…"}
-              </div>
-              <div className="truncate text-[11px] text-slate-500 dark:text-slate-400">
-                {profile ? `${profile.title} · ${profile.department}` : ""}
-              </div>
-            </div>
-          </div>
+             <div className="flex items-center gap-2 font-bold text-lg tracking-tight text-slate-900 dark:text-white">
+                <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white">M</div>
+                <span>Mosianedi</span>
+             </div>
         ) : (
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent-color)] text-[12px] font-semibold text-white shrink-0">
-            {initials || "?"}
-          </div>
+            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold">M</div>
         )}
-
-        {/* Toggle Button */}
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          className={cn(
-            "inline-flex items-center justify-center rounded-full p-1 hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0",
-            open ? "ml-2" : "ml-auto"
-          )}
-          aria-label="Toggle sidebar"
-        >
-          {open ? (
-            <ChevronLeft className="h-4 w-4 text-[var(--foreground)]/70 dark:text-slate-300" />
-          ) : (
-            <Menu className="h-4 w-4 text-[var(--foreground)]/70 dark:text-slate-300" />
-          )}
-        </button>
       </div>
 
-      {/* Nav (scrollable if needed) */}
-      <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
-        <NavLink
-          href="/projects"
-          icon={<FolderKanban className="h-4 w-4" />}
-          label={open ? "Projects" : ""}
-        />
-        <NavLink
-          href="/dashboard"
-          icon={<LayoutDashboard className="h-4 w-4" />}
-          label={open ? "Dashboard" : ""}
-        />
-        <NavLink
-            href="/network"
-            icon={<Map className="h-4 w-4" />}
-            label={open ? "Network" : ""}
-          />
-        <NavLink
-          href="/presentationmode"
-          icon={<Presentation className="h-4 w-4" />} 
-          label={open ? "Presenter Mode" : ""}
-        />
-        <NavLink
-          href="/reports"
-          icon={<BarChart2 className="h-4 w-4" />}
-          label={open ? "Reports" : ""}
-        />
-        <NavLink
-          href="/profile"
-          icon={<User2 className="h-4 w-4" />}
-          label={open ? "Profile" : ""}
-        />
-        <NavLink
-          href="/settings"
-          icon={<Settings className="h-4 w-4" />}
-          label={open ? "Settings" : ""}
-        />
-
-        {/* Logout nav item */}
-        <button
-          type="button"
-          onClick={handleLogout}
-          disabled={loggingOut}
-          className={cn(
-            "mt-4 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
-            "text-slate-500 hover:bg-red-50 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-950/40 dark:hover:text-red-300",
-            loggingOut && "opacity-60 cursor-not-allowed"
-          )}
+      {/* 2. NAVIGATION LIST (Scrollable) */}
+      <nav className="flex-1 space-y-1 p-3 overflow-y-auto no-scrollbar">
+        
+        {/* PROJECTS GROUP */}
+        <NavGroup 
+            label="Projects" 
+            icon={<FolderKanban className="w-5 h-5"/>} 
+            active={pathname.includes("/projects")}
+            expanded={projectsOpen}
+            onToggle={() => {
+                if (!open) setOpen(true);
+                setProjectsOpen(!projectsOpen);
+            }}
+            sidebarOpen={open}
         >
-          <LogOut className="h-4 w-4" />
-          {open && <span>{loggingOut ? "Logging out…" : "Logout"}</span>}
-        </button>
+            <NavItem 
+                href="/projects/recent" 
+                label="Recent Activity" 
+                icon={<Clock className="w-3 h-3"/>} 
+            />
+            <NavItem 
+                href="/projects" 
+                label="All Proposals" 
+                icon={<FileText className="w-3 h-3"/>} 
+            />
+            <NavItem 
+                href="/projects/governance" 
+                label="Governance" 
+                icon={<ShieldAlert className="w-3 h-3"/>} 
+            />
+        </NavGroup>
+
+        <SimpleLink href="/dashboard" icon={<LayoutDashboard className="w-5 h-5"/>} label="Dashboard" active={pathname === "/dashboard"} open={open} />
+        <SimpleLink href="/network" icon={<Map className="w-5 h-5"/>} label="Network Map" active={pathname === "/network"} open={open} />
+        
+        {/* REPORTS GROUP */}
+        <NavGroup 
+            label="Treasury Reports" 
+            icon={<BarChart2 className="w-5 h-5"/>} 
+            active={pathname.includes("/reports")}
+            expanded={reportsOpen}
+            onToggle={() => {
+                if (!open) setOpen(true);
+                setReportsOpen(!reportsOpen);
+            }}
+            sidebarOpen={open}
+        >
+            <NavItem href="/reports" label="Report Builder" icon={<Settings className="w-3 h-3"/>} />
+            <NavItem href="/reports/budget" label="Budget Summary" icon={<Wallet className="w-3 h-3"/>} />
+            {/* NEW LINK BELOW */}
+            <NavItem href="/reports/treasury-view" label="Treasury Request" icon={<Presentation className="w-3 h-3"/>} />
+        </NavGroup>
+        <SimpleLink href="/presentationmode" icon={<Presentation className="w-5 h-5"/>} label="Boardroom Mode" active={pathname === "/presentationmode"} open={open} />
       </nav>
 
-      {/* Branding */}
-      <div className="border-t border-slate-200/10 px-4 py-3 text-center text-[11px] text-slate-500 dark:border-slate-800/10 dark:text-slate-400">
-        Mosianedi · Road Investment Studio
+      {/* 3. FOOTER (Profile + Toggle) */}
+      <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+          
+          {/* Profile Section */}
+          <div className={cn("flex items-center gap-3 mb-4", !open && "justify-center")}>
+              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-xs font-bold text-white shadow-sm shrink-0">
+                  {initials}
+              </div>
+              
+              {open && (
+                  <div className="flex-1 overflow-hidden">
+                      <div className="truncate text-sm font-bold text-slate-700 dark:text-slate-200">
+                          {profile ? `${profile.first_name} ${profile.last_name}` : "User"}
+                      </div>
+                      <div className="truncate text-[10px] text-slate-500 uppercase font-bold tracking-wider">
+                          {profile?.department || "Admin"}
+                      </div>
+                  </div>
+              )}
+          </div>
+
+          <div className="flex gap-2">
+            {/* Logout */}
+            <button
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className={cn(
+                    "flex-1 flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-bold transition-colors border",
+                    "border-slate-200 dark:border-slate-700 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-900/20 dark:hover:text-rose-400 text-slate-500"
+                )}
+            >
+                <LogOut className="w-3.5 h-3.5" />
+                {open && "Log Out"}
+            </button>
+            
+            {/* Sidebar Toggle (Moved to Footer) */}
+            <button
+                onClick={toggleSidebar}
+                className="w-9 h-9 flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
+            >
+                {open ? <ChevronsLeft className="w-4 h-4" /> : <ChevronsRight className="w-4 h-4" />}
+            </button>
+          </div>
       </div>
     </aside>
   );
 }
-
-export default SidebarComponent;
-export { SidebarComponent as Sidebar };
