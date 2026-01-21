@@ -1,211 +1,257 @@
 "use client";
 
 import React from "react";
-import { Loader2, AlertTriangle, Building2, Map, PieChart } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Loader2, AlertTriangle, TrendingUp, Settings2, Map } from "lucide-react";
 import { useReportData } from "../hooks/useReportData";
 
 interface ReportLivePreviewProps {
   template: string;
   config: any;
+  previewRef?: React.RefObject<HTMLDivElement | null>;
 }
 
-export default function ReportLivePreview({ template, config }: ReportLivePreviewProps) {
-  
-  // 1. Fetch Real Data
+const formatMoney = (amount: number) => {
+  if (!amount) return "R 0.00";
+  if (amount >= 1_000_000_000) return `R ${(amount / 1_000_000_000).toFixed(2)}bn`;
+  return `R ${(amount / 1_000_000).toFixed(1)}m`;
+};
+
+export default function ReportLivePreview({ template, config, previewRef }: ReportLivePreviewProps) {
   const { data, loading } = useReportData(config.projectId, config);
 
   if (!config.projectId) return <EmptyState label="Select a project from the sidebar to begin." />;
   if (loading || !data) return <LoadingState />;
 
-  const { meta, summary, criticalRisks, segments, chartData } = data;
+  const { meta, summary, inputs, criticalRisks, segments, chartData } = data;
 
-  // 2. Client-Side Filtering (District)
   const filteredSegments = segments.filter((seg: any) => {
-      if (config.district && config.district !== "All") {
-          // Normalize check (case insensitive)
-          return (seg.district || "").toLowerCase() === config.district.toLowerCase();
-      }
-      return true;
+    if (config.district && config.district !== "All") {
+      return (seg.district || "").toLowerCase() === config.district.toLowerCase();
+    }
+    return true;
   });
 
-  // 3. Sorting (Criticality Desc)
-  const displaySegments = [...filteredSegments].sort((a, b) => (b.iri || 0) - (a.iri || 0));
+  const displaySegments = [...filteredSegments].sort((a, b) => (b.normalized_iri || 0) - (a.normalized_iri || 0));
 
   return (
-    <div className="w-[210mm] min-h-[297mm] bg-white shadow-2xl mx-auto p-[15mm] text-slate-900 transition-all duration-500 origin-top scale-[0.85] lg:scale-100 text-sm">
-      
+    <div
+      id="report-print-root"
+      ref={previewRef}
+      style={{
+        backgroundColor: "#ffffff",
+        color: "#0f172a",
+      }}
+      className="w-[210mm] min-h-[297mm] shadow-2xl mx-auto p-[15mm] origin-top text-sm font-sans"
+    >
       {/* HEADER */}
-      <header className="border-b-2 border-slate-900 pb-4 mb-6 flex justify-between items-end">
+      <header
+        style={{
+          borderBottom: "2px solid #0f172a",
+          paddingBottom: 16,
+          marginBottom: 28,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-end",
+        }}
+      >
         <div>
-            <h1 className="text-2xl font-black uppercase tracking-tight">{config.title}</h1>
-            <p className="text-xs font-mono text-slate-500 mt-1">
-                Generated: {new Date().toLocaleDateString()} • {meta.projectName}
-            </p>
+          <h1 style={{ fontSize: 30, fontWeight: 900, letterSpacing: "-0.02em", margin: 0 }}>
+            {String(config.title || "").toUpperCase()}
+          </h1>
+
+          <div style={{ display: "flex", gap: 10, marginTop: 8, fontSize: 11, color: "#64748b", fontFamily: "monospace" }}>
+            <span>{meta.generatedDate}</span>
+            <span>•</span>
+            <span style={{ textTransform: "uppercase" }}>{meta.projectName}</span>
+          </div>
         </div>
-        <div className="text-right">
-            <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Province</div>
-            <div className="font-bold text-indigo-600">{meta.province}</div>
+
+        <div style={{ textAlign: "right" }}>
+          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.18em", textTransform: "uppercase", color: "#94a3b8" }}>
+            Province
+          </div>
+          <div style={{ fontWeight: 800, fontSize: 20, color: "#4f46e5" }}>{meta.province}</div>
         </div>
       </header>
 
-      {/* SUMMARY BANNER */}
-      <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-8 flex justify-between">
-          <div>
-              <div className="text-[10px] uppercase text-slate-400 font-bold">Total Network</div>
-              <div className="text-xl font-bold">{summary.totalLength.toFixed(2)} km</div>
+      {/* SUMMARY STATS */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
+        <StatBox label="Network Size" value={`${summary.totalLength.toFixed(0)} km`} />
+        <StatBox label="Avg Condition" value={`VCI ${summary.avgCondition.toFixed(0)}`} />
+        <StatBox label="Asset Value" value={formatMoney(summary.assetValue)} />
+        {config.showCost && (
+          <div style={{ backgroundColor: "#eef2ff", border: "1px solid #c7d2fe", borderRadius: 10, padding: 12 }}>
+            <div style={{ fontSize: 10, textTransform: "uppercase", fontWeight: 900, color: "#4f46e5", marginBottom: 6 }}>
+              Total Ask
+            </div>
+            <div style={{ fontSize: 18, fontWeight: 900, color: "#1e1b4b" }}>{formatMoney(summary.budgetAsk)}</div>
           </div>
-          <div>
-              <div className="text-[10px] uppercase text-slate-400 font-bold">Segment Count</div>
-              <div className="text-xl font-bold">{displaySegments.length}</div>
-          </div>
-          {config.showCost && (
-             <div className="text-right">
-                 <div className="text-[10px] uppercase text-slate-400 font-bold">Budget Est.</div>
-                 <div className="text-xl font-bold text-indigo-600">R {(summary.budgetAsk / 1e6).toFixed(1)}m</div>
-             </div>
-          )}
+        )}
       </div>
 
-      {/* VIEW: ENGINEERING TABLE */}
-      {template === "engineering" && (
-        <>
-            <div className="mb-4 text-xs font-mono text-slate-500 flex gap-4">
-                <span>FILTER: {config.condition.toUpperCase()}</span>
-                {config.district !== 'All' && <span>DISTRICT: {config.district.toUpperCase()}</span>}
-            </div>
+      {/* INPUTS */}
+      <div style={{ backgroundColor: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 14, padding: 14, marginBottom: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, color: "#94a3b8", fontSize: 11, fontWeight: 900, textTransform: "uppercase" }}>
+          <Settings2 size={14} />
+          Simulation Parameters
+        </div>
 
-            <table className="w-full text-xs text-left">
-                <thead>
-                    <tr className="border-b-2 border-slate-800">
-                        <th className="py-2 font-black uppercase w-24">Road ID</th>
-                        {config.showDistrict && <th className="py-2 font-black uppercase">District</th>}
-                        <th className="py-2 font-black uppercase text-right">Start (km)</th>
-                        <th className="py-2 font-black uppercase text-right">Length</th>
-                        {config.showSurface && <th className="py-2 font-black uppercase">Surface</th>}
-                        <th className="py-2 font-black uppercase text-center">IRI</th>
-                        <th className="py-2 font-black uppercase text-right">Action</th>
-                        {config.showCost && <th className="py-2 font-black uppercase text-right">Est. Cost</th>}
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 font-mono text-[11px]">
-                    {displaySegments.slice(0, 35).map((seg: any, i: number) => {
-                         const iri = seg.iri || seg.avg_iri || 0;
-                         const isCritical = iri > 5;
-                         const cost = (seg.length || seg.length_km || 1) * (isCritical ? 2.5 : 0.5); // Mock cost calc
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, fontSize: 12, color: "#334155" }}>
+          <div>
+            <div style={{ color: "#94a3b8", fontSize: 11 }}>Strategy</div>
+            <div style={{ fontWeight: 800, textTransform: "capitalize" }}>{inputs.strategy || "Standard"}</div>
+          </div>
+          <div>
+            <div style={{ color: "#94a3b8", fontSize: 11 }}>Start Year</div>
+            <div style={{ fontWeight: 800 }}>{inputs.startYear}</div>
+          </div>
+          <div>
+            <div style={{ color: "#94a3b8", fontSize: 11 }}>Inflation</div>
+            <div style={{ fontWeight: 800 }}>{Number(inputs.inflation).toFixed(1)}%</div>
+          </div>
+          <div>
+            <div style={{ color: "#94a3b8", fontSize: 11 }}>Budget Cap</div>
+            <div style={{ fontWeight: 800 }}>{inputs.budgetCap > 0 ? formatMoney(inputs.budgetCap) : "Unconstrained"}</div>
+          </div>
+        </div>
+      </div>
 
-                         return (
-                            <tr key={i} className={i % 2 === 0 ? "bg-slate-50/50" : ""}>
-                                <td className="py-2 font-bold">{seg.road_id || seg.road_code || "Unknown"}</td>
-                                
-                                {config.showDistrict && (
-                                    <td className="py-2 text-slate-500">{seg.district || "-"}</td>
-                                )}
-
-                                <td className="py-2 text-right">{(seg.start_km || 0).toFixed(2)}</td>
-                                <td className="py-2 text-right">{(seg.length || seg.length_km || 0).toFixed(2)}</td>
-                                
-                                {config.showSurface && (
-                                    <td className="py-2 text-slate-500 capitalize">{seg.surface || seg.surface_type || "Paved"}</td>
-                                )}
-
-                                <td className={cn("py-2 text-center font-bold", isCritical ? "text-rose-600" : "text-emerald-600")}>
-                                    {iri.toFixed(2)}
-                                </td>
-
-                                <td className="py-2 text-right font-sans text-slate-600">
-                                    {isCritical ? "Rehabilitate" : "Routine Maint"}
-                                </td>
-
-                                {config.showCost && (
-                                    <td className="py-2 text-right">R {cost.toFixed(2)}m</td>
-                                )}
-                            </tr>
-                        );
-                    })}
-                </tbody>
-            </table>
-            
-            {displaySegments.length === 0 && (
-                <div className="p-12 text-center text-slate-400 border border-dashed border-slate-300 rounded-lg mt-4">
-                    <AlertTriangle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    No segments found matching "{config.condition}" in {config.district}.
-                </div>
-            )}
-
-            {displaySegments.length > 35 && (
-                <div className="mt-4 p-2 text-center text-xs text-slate-400 italic bg-slate-50 border border-slate-100 rounded">
-                    ... {displaySegments.length - 35} more rows included in export.
-                </div>
-            )}
-        </>
-      )}
-
-      {/* VIEW: EXECUTIVE SUMMARY */}
+      {/* TEMPLATE CONTENT */}
       {template === "executive" && (
-         <div className="space-y-8">
-            <div className="h-64 bg-slate-50 rounded-xl border border-slate-100 p-4 relative overflow-hidden">
-                <span className="text-xs font-bold uppercase tracking-widest text-slate-400 absolute top-4 left-4">
-                    Network Deterioration Forecast
-                </span>
-                <div className="flex items-end h-full pt-8 gap-1">
-                    {chartData.length > 0 ? chartData.map((d: any, i: number) => (
-                        <div key={i} className="flex-1 bg-indigo-500 transition-all rounded-t-sm" style={{ height: `${d.avg_condition_index}%` }} />
-                    )) : (
-                        <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs">
-                            Run simulation to view forecast.
-                        </div>
-                    )}
-                </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          {/* CHART */}
+          <div style={{ border: "1px solid #e2e8f0", borderRadius: 14, padding: 18, height: 288 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.14em", color: "#94a3b8" }}>
+                <TrendingUp size={16} />
+                Condition Forecast (10 Years)
+              </div>
             </div>
-            
-            <div className="grid grid-cols-2 gap-6">
-                 <div className="p-4 bg-rose-50 rounded-xl border border-rose-100">
-                    <h3 className="font-bold text-rose-700 mb-2 flex items-center gap-2 text-xs uppercase tracking-wider">
-                        <AlertTriangle className="w-4 h-4" /> Top Critical Risks
-                    </h3>
-                    <ul className="text-xs space-y-2 text-rose-800">
-                        {criticalRisks.length > 0 ? criticalRisks.map((road: any, i: number) => (
-                             <li key={i} className="flex justify-between border-b border-rose-200 pb-1">
-                                <span>{road.road_id}</span>
-                                <span className="font-mono font-bold">IRI {road.iri?.toFixed(1)}</span>
-                             </li>
-                        )) : <li>No critical risks found.</li>}
-                    </ul>
-                 </div>
-                 
-                 <div className="flex flex-col items-center justify-center text-slate-400 border border-slate-100 rounded-xl">
-                    <PieChart className="w-8 h-8 opacity-20 mb-2" />
-                    <span className="text-xs">Condition Breakdown Chart</span>
-                 </div>
-            </div>
-         </div>
-      )}
 
-      {/* VIEW: GIS */}
-      {template === "gis" && (
-        <div className="flex flex-col items-center justify-center h-[400px] text-slate-400">
-            <Map className="w-16 h-16 text-indigo-100 mb-4" />
-            <h3 className="text-lg font-bold text-slate-700">Ready to Export</h3>
-            <p className="text-sm">
-                Package contains <strong className="text-indigo-600">{displaySegments.length}</strong> spatial features.
-            </p>
+            <div style={{ display: "flex", alignItems: "flex-end", height: 190, gap: 8, borderLeft: "1px solid #f1f5f9", borderBottom: "1px solid #f1f5f9", paddingLeft: 10, paddingBottom: 10 }}>
+              {chartData.length > 0 ? (
+                chartData.map((d: any, i: number) => (
+                  <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+                    <div style={{ width: "100%", height: `${d.avg_condition_index}%`, backgroundColor: "#6366f1", borderTopLeftRadius: 2, borderTopRightRadius: 2 }} />
+                    <div style={{ fontSize: 10, color: "#94a3b8", textAlign: "center", marginTop: 8 }}>{d.year}</div>
+                  </div>
+                ))
+              ) : (
+                <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "#cbd5e1", fontStyle: "italic" }}>
+                  Run simulation to generate forecast graph.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* RISKS */}
+          <div style={{ border: "1px solid #ffe4e6", borderRadius: 14, overflow: "hidden", backgroundColor: "#fff1f2" }}>
+            <div style={{ padding: "12px 18px", borderBottom: "1px solid #ffe4e6", display: "flex", alignItems: "center", gap: 10, fontWeight: 900, fontSize: 11, textTransform: "uppercase", color: "#be123c" }}>
+              <AlertTriangle size={16} />
+              Critical Risk Segments
+            </div>
+
+            <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse", backgroundColor: "#fff1f2" }}>
+              <thead>
+                <tr style={{ color: "#9f1239" }}>
+                  <th style={{ textAlign: "left", padding: "10px 18px" }}>Road ID</th>
+                  <th style={{ textAlign: "left", padding: "10px 18px" }}>Location</th>
+                  <th style={{ textAlign: "right", padding: "10px 18px" }}>Roughness (IRI)</th>
+                  <th style={{ textAlign: "right", padding: "10px 18px" }}>Remedial Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                {criticalRisks.map((road: any, i: number) => (
+                  <tr key={i} style={{ borderTop: "1px solid #fecdd3" }}>
+                    <td style={{ padding: "12px 18px", fontWeight: 900, color: "#881337" }}>{road.normalized_id}</td>
+                    <td style={{ padding: "12px 18px", color: "#9f1239" }}>{road.district || "Unknown"}</td>
+                    <td style={{ padding: "12px 18px", textAlign: "right", fontFamily: "monospace", fontWeight: 900, color: "#e11d48" }}>
+                      {Number(road.normalized_iri || 0).toFixed(2)}
+                    </td>
+                    <td style={{ padding: "12px 18px", textAlign: "right", color: "#9f1239" }}>
+                      {formatMoney((road.normalized_length || 0) * 2_500_000)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
+      {template === "engineering" && (
+        <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ borderBottom: "2px solid #0f172a" }}>
+              <th style={{ padding: "10px 0", textTransform: "uppercase", fontWeight: 900, textAlign: "left" }}>ID</th>
+              {config.showDistrict && (
+                <th style={{ padding: "10px 0", textTransform: "uppercase", fontWeight: 900, textAlign: "left" }}>District</th>
+              )}
+              <th style={{ padding: "10px 0", textTransform: "uppercase", fontWeight: 900, textAlign: "right" }}>Length</th>
+              {config.showSurface && (
+                <th style={{ padding: "10px 0", textTransform: "uppercase", fontWeight: 900, textAlign: "left" }}>Type</th>
+              )}
+              <th style={{ padding: "10px 0", textTransform: "uppercase", fontWeight: 900, textAlign: "center" }}>IRI</th>
+              <th style={{ padding: "10px 0", textTransform: "uppercase", fontWeight: 900, textAlign: "left" }}>Treatment</th>
+              {config.showCost && (
+                <th style={{ padding: "10px 0", textTransform: "uppercase", fontWeight: 900, textAlign: "right" }}>Cost</th>
+              )}
+            </tr>
+          </thead>
+
+          <tbody>
+            {displaySegments.slice(0, 45).map((seg: any, i: number) => {
+              const iri = Number(seg.normalized_iri || 0);
+              const cost = (Number(seg.normalized_length || 1) || 1) * (iri > 5 ? 3_500_000 : 500_000);
+              const danger = iri > 5;
+
+              return (
+                <tr key={i} style={{ backgroundColor: i % 2 === 0 ? "#f8fafc" : "#ffffff", borderTop: "1px solid #e5e7eb" }}>
+                  <td style={{ padding: "10px 0", fontFamily: "monospace", fontWeight: 900, color: "#334155" }}>{seg.normalized_id}</td>
+                  {config.showDistrict && <td style={{ padding: "10px 0", color: "#475569" }}>{seg.district || ""}</td>}
+                  <td style={{ padding: "10px 0", textAlign: "right", color: "#475569" }}>{Number(seg.normalized_length || 0).toFixed(2)}</td>
+                  {config.showSurface && <td style={{ padding: "10px 0", textTransform: "capitalize", color: "#475569" }}>{seg.surface || seg.surface_type || ""}</td>}
+                  <td style={{ padding: "10px 0", textAlign: "center", fontWeight: 900, color: danger ? "#e11d48" : "#475569" }}>
+                    {iri.toFixed(1)}
+                  </td>
+                  <td style={{ padding: "10px 0", color: "#475569" }}>{danger ? "Rehabilitation" : "Maintenance"}</td>
+                  {config.showCost && <td style={{ padding: "10px 0", textAlign: "right", fontFamily: "monospace", color: "#475569" }}>{formatMoney(cost)}</td>}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+
+      {template === "gis" && (
+        <div style={{ height: 400, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#94a3b8" }}>
+          <Map size={64} color="#c7d2fe" />
+          <div style={{ marginTop: 14, fontSize: 18, fontWeight: 900, color: "#334155" }}>Ready to Export</div>
+          <div style={{ marginTop: 6, fontSize: 13 }}>
+            Package contains <span style={{ color: "#4f46e5", fontWeight: 900 }}>{displaySegments.length}</span> spatial features.
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
+const StatBox = ({ label, value }: any) => (
+  <div style={{ backgroundColor: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 12 }}>
+    <div style={{ fontSize: 10, textTransform: "uppercase", color: "#94a3b8", fontWeight: 900, marginBottom: 6 }}>{label}</div>
+    <div style={{ fontSize: 18, fontWeight: 900, color: "#0f172a" }}>{value}</div>
+  </div>
+);
+
 const EmptyState = ({ label }: { label: string }) => (
-    <div className="w-[210mm] min-h-[297mm] bg-white shadow-xl mx-auto flex items-center justify-center text-slate-400 text-sm">
-        {label}
-    </div>
+  <div className="w-[210mm] min-h-[297mm] bg-white shadow-xl mx-auto flex items-center justify-center text-gray-400 text-sm">
+    {label}
+  </div>
 );
 
 const LoadingState = () => (
-    <div className="w-[210mm] min-h-[297mm] bg-white shadow-xl mx-auto flex flex-col items-center justify-center text-slate-400 text-sm gap-3">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-        Fetching segments...
-    </div>
+  <div className="w-[210mm] min-h-[297mm] bg-white shadow-xl mx-auto flex flex-col items-center justify-center text-gray-400 text-sm gap-3">
+    <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+    Generating report preview...
+  </div>
 );

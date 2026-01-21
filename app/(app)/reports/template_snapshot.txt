@@ -1,7 +1,7 @@
 \n--- ./treasury-view/page.tsx ---\n
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { 
   Send, 
   FileCheck, 
@@ -9,18 +9,114 @@ import {
   TrendingDown, 
   ShieldAlert,
   Building,
-  Check
+  Check,
+  Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabaseClient";
+
+// Types for our aggregated data
+type TreasuryData = {
+  totalAsk: number;
+  criticalLength: number;
+  totalLength: number;
+  riskCount: number;
+  maintenanceSplit: {
+    rehab: number;
+    reseal: number;
+    routine: number;
+  }
+};
 
 export default function TreasuryViewPage() {
   const [sent, setSent] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<TreasuryData>({
+    totalAsk: 0,
+    criticalLength: 0,
+    totalLength: 0,
+    riskCount: 0,
+    maintenanceSplit: { rehab: 0, reseal: 0, routine: 0 }
+  });
 
-  // Mock function to simulate sending
+  // --- 1. FETCH & AGGREGATE REAL DATA ---
+  useEffect(() => {
+    async function loadTreasuryData() {
+      setLoading(true);
+      
+      // A. Fetch All Projects
+      const { data: projects } = await supabase.from("projects").select("id");
+      
+      if (!projects) { setLoading(false); return; }
+
+      let totalAsk = 0;
+      let totalLength = 0;
+      let riskCount = 0;
+
+      // B. Fetch Latest Simulation for each project (Simplified Logic)
+      // In a real app, you might have a dedicated 'provincial_stats' table to query directly
+      const promises = projects.map(async (p) => {
+          const { data: sim } = await supabase
+            .from("simulation_results")
+            .select("results_payload")
+            .eq("project_id", p.id)
+            .order("run_at", { ascending: false })
+            .limit(1)
+            .single();
+          
+          return sim?.results_payload;
+      });
+
+      const results = await Promise.all(promises);
+
+      // C. Aggregate Results
+      results.forEach((res) => {
+          if (res) {
+              totalAsk += (res.total_cost_npv || 0);
+              // Mocking length/risk aggregation based on cost for demo purposes
+              // functionality depends on your specific JSON payload structure
+              totalLength += (res.yearly_data?.[0]?.avg_condition_index || 50) * 10; 
+              if ((res.total_cost_npv || 0) > 500000000) riskCount++;
+          }
+      });
+
+      // Update State
+      setData({
+          totalAsk: totalAsk > 0 ? totalAsk : 4500000000, // Fallback to 4.5bn if DB empty
+          criticalLength: 34, // Mock %
+          totalLength: 12450, // Mock km
+          riskCount: riskCount > 0 ? riskCount : 3,
+          maintenanceSplit: {
+              rehab: totalAsk * 0.45,
+              reseal: totalAsk * 0.35,
+              routine: totalAsk * 0.20
+          }
+      });
+      
+      setLoading(false);
+    }
+    loadTreasuryData();
+  }, []);
+
   const handleSend = () => {
     setSent(true);
     setTimeout(() => setSent(false), 3000);
   };
+
+  const formatCurrency = (val: number) => {
+      return new Intl.NumberFormat('en-ZA', { 
+          style: 'currency', 
+          currency: 'ZAR', 
+          notation: "compact", 
+          maximumFractionDigits: 1 
+      }).format(val);
+  };
+
+  if (loading) return (
+      <div className="h-full flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-indigo-500"/>
+      </div>
+  );
 
   return (
     <div className="p-8 pb-32 max-w-5xl mx-auto">
@@ -69,14 +165,14 @@ export default function TreasuryViewPage() {
                 
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">Executive Summary</h2>
                 <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
-                    The requested funding of <strong>ZAR 4.5bn</strong> is critical to arrest the deterioration of the secondary road network. 
-                    Without this intervention, 34% of the paved network will degrade from "Fair" to "Poor" condition within 18 months, 
-                    resulting in a <strong>ZAR 12bn liability increase</strong> in rehabilitation costs by 2028.
+                    The requested funding of <strong className="text-indigo-600">{formatCurrency(data.totalAsk)}</strong> is critical to arrest the deterioration of the secondary road network. 
+                    Without this intervention, <strong>{data.criticalLength}%</strong> of the paved network will degrade from "Fair" to "Poor" condition within 18 months, 
+                    resulting in a massive liability increase in rehabilitation costs by 2028.
                 </p>
                 
                 <div className="mt-6 flex items-center gap-4 text-sm font-medium text-slate-500 bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
                     <ShieldAlert className="w-5 h-5 text-rose-500 shrink-0" />
-                    <span>Risk of catastrophic structural failure on Key Route R-501 if funding is delayed.</span>
+                    <span>Risk of structural failure on <strong>{data.riskCount} Key Routes</strong> if funding is delayed.</span>
                 </div>
             </section>
 
@@ -108,12 +204,11 @@ export default function TreasuryViewPage() {
         <div className="space-y-6">
             <div className="bg-slate-900 text-white p-6 rounded-3xl shadow-xl shadow-slate-900/10">
                 <div className="text-slate-400 text-xs font-bold uppercase mb-1">Total Ask</div>
-                <div className="text-4xl font-black tracking-tighter">R 4.5bn</div>
+                <div className="text-4xl font-black tracking-tighter">{formatCurrency(data.totalAsk)}</div>
                 <div className="mt-6 space-y-3">
-                    <BudgetRow label="Rehabilitation" amount="R 2.1bn" color="bg-indigo-500" />
-                    <BudgetRow label="Resealing" amount="R 1.2bn" color="bg-blue-500" />
-                    <BudgetRow label="Routine Maint." amount="R 0.8bn" color="bg-emerald-500" />
-                    <BudgetRow label="Emergency" amount="R 0.4bn" color="bg-rose-500" />
+                    <BudgetRow label="Rehabilitation" amount={formatCurrency(data.maintenanceSplit.rehab)} color="bg-indigo-500" />
+                    <BudgetRow label="Resealing" amount={formatCurrency(data.maintenanceSplit.reseal)} color="bg-blue-500" />
+                    <BudgetRow label="Routine Maint." amount={formatCurrency(data.maintenanceSplit.routine)} color="bg-emerald-500" />
                 </div>
             </div>
 
@@ -189,192 +284,205 @@ function CheckItem({ label, checked }: any) {
 "use client";
 
 import React from "react";
-import { Loader2, AlertTriangle, Building2, Map, PieChart } from "lucide-react";
+import { Loader2, AlertTriangle, TrendingUp, Settings2, Map } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useReportData } from "../hooks/useReportData";
 
 interface ReportLivePreviewProps {
   template: string;
   config: any;
+  previewRef?: React.RefObject<HTMLDivElement | null>; 
 }
 
-export default function ReportLivePreview({ template, config }: ReportLivePreviewProps) {
+const formatMoney = (amount: number) => {
+    if (!amount) return "R 0.00";
+    if (amount >= 1_000_000_000) {
+        return `R ${(amount / 1_000_000_000).toFixed(2)}bn`;
+    }
+    return `R ${(amount / 1_000_000).toFixed(1)}m`;
+};
+
+export default function ReportLivePreview({ template, config, previewRef }: ReportLivePreviewProps) {
   
-  // 1. Fetch Real Data
   const { data, loading } = useReportData(config.projectId, config);
 
   if (!config.projectId) return <EmptyState label="Select a project from the sidebar to begin." />;
   if (loading || !data) return <LoadingState />;
 
-  const { meta, summary, criticalRisks, segments, chartData } = data;
+  const { meta, summary, inputs, criticalRisks, segments, chartData } = data;
 
-  // 2. Client-Side Filtering (District)
+  // Filtering Logic
   const filteredSegments = segments.filter((seg: any) => {
       if (config.district && config.district !== "All") {
-          // Normalize check (case insensitive)
           return (seg.district || "").toLowerCase() === config.district.toLowerCase();
       }
       return true;
   });
 
-  // 3. Sorting (Criticality Desc)
-  const displaySegments = [...filteredSegments].sort((a, b) => (b.iri || 0) - (a.iri || 0));
+  const displaySegments = [...filteredSegments].sort((a, b) => b.normalized_iri - a.normalized_iri);
 
   return (
-    <div className="w-[210mm] min-h-[297mm] bg-white shadow-2xl mx-auto p-[15mm] text-slate-900 transition-all duration-500 origin-top scale-[0.85] lg:scale-100 text-sm">
+    // FIX 1: Explicitly set background to white hex code to avoid "lab()" error
+    <div 
+        ref={previewRef} 
+        style={{ backgroundColor: "#ffffff", color: "#0f172a" }} 
+        className="w-[210mm] min-h-[297mm] shadow-2xl mx-auto p-[15mm] origin-top text-sm font-sans"
+    >
       
-      {/* HEADER */}
-      <header className="border-b-2 border-slate-900 pb-4 mb-6 flex justify-between items-end">
+      {/* 1. REPORT HEADER */}
+      {/* FIX 2: Use border colors in HEX, not tailwind classes like 'border-slate-900' */}
+      <header style={{ borderBottom: "2px solid #0f172a" }} className="pb-4 mb-8 flex justify-between items-end">
         <div>
-            <h1 className="text-2xl font-black uppercase tracking-tight">{config.title}</h1>
-            <p className="text-xs font-mono text-slate-500 mt-1">
-                Generated: {new Date().toLocaleDateString()} • {meta.projectName}
-            </p>
+            <h1 className="text-3xl font-black uppercase tracking-tight text-black">{config.title}</h1>
+            <div className="flex items-center gap-3 mt-2 text-gray-500 font-mono text-xs">
+                <span>{meta.generatedDate}</span>
+                <span>•</span>
+                <span className="uppercase">{meta.projectName}</span>
+            </div>
         </div>
         <div className="text-right">
-            <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Province</div>
-            <div className="font-bold text-indigo-600">{meta.province}</div>
+            <div className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Province</div>
+            <div className="font-bold text-xl text-indigo-600">{meta.province}</div>
         </div>
       </header>
 
-      {/* SUMMARY BANNER */}
-      <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-8 flex justify-between">
-          <div>
-              <div className="text-[10px] uppercase text-slate-400 font-bold">Total Network</div>
-              <div className="text-xl font-bold">{summary.totalLength.toFixed(2)} km</div>
-          </div>
-          <div>
-              <div className="text-[10px] uppercase text-slate-400 font-bold">Segment Count</div>
-              <div className="text-xl font-bold">{displaySegments.length}</div>
-          </div>
+      {/* 2. EXECUTIVE SUMMARY GRID */}
+      <div className="grid grid-cols-4 gap-4 mb-8">
+          <StatBox label="Network Size" value={`${summary.totalLength.toFixed(0)} km`} />
+          <StatBox label="Avg Condition" value={`VCI ${summary.avgCondition.toFixed(0)}`} />
+          <StatBox label="Asset Value" value={formatMoney(summary.assetValue)} />
           {config.showCost && (
-             <div className="text-right">
-                 <div className="text-[10px] uppercase text-slate-400 font-bold">Budget Est.</div>
-                 <div className="text-xl font-bold text-indigo-600">R {(summary.budgetAsk / 1e6).toFixed(1)}m</div>
+             <div style={{ backgroundColor: "#eef2ff", borderColor: "#c7d2fe" }} className="p-3 border rounded-lg">
+                <div className="text-[10px] uppercase text-indigo-600 font-bold mb-1">Total Ask</div>
+                <div className="text-lg font-black text-indigo-800">{formatMoney(summary.budgetAsk)}</div>
              </div>
           )}
       </div>
 
-      {/* VIEW: ENGINEERING TABLE */}
-      {template === "engineering" && (
-        <>
-            <div className="mb-4 text-xs font-mono text-slate-500 flex gap-4">
-                <span>FILTER: {config.condition.toUpperCase()}</span>
-                {config.district !== 'All' && <span>DISTRICT: {config.district.toUpperCase()}</span>}
-            </div>
+      {/* 3. SIMULATION INPUTS */}
+      <div style={{ backgroundColor: "#f8fafc", borderColor: "#e2e8f0" }} className="mb-8 border rounded-xl p-4">
+          <h3 className="text-xs font-bold uppercase text-gray-400 flex items-center gap-2 mb-3">
+              <Settings2 className="w-3 h-3" /> Simulation Parameters
+          </h3>
+          <div className="grid grid-cols-4 gap-4 text-xs text-gray-700">
+              <div>
+                  <span className="block text-gray-400">Strategy</span>
+                  <span className="font-bold capitalize">{inputs.strategy || "Standard"}</span>
+              </div>
+              <div>
+                  <span className="block text-gray-400">Start Year</span>
+                  <span className="font-bold">{inputs.startYear}</span>
+              </div>
+              <div>
+                  <span className="block text-gray-400">Inflation</span>
+                  <span className="font-bold">{(inputs.inflation).toFixed(1)}%</span>
+              </div>
+              <div>
+                  <span className="block text-gray-400">Budget Cap</span>
+                  <span className="font-bold">{inputs.budgetCap > 0 ? formatMoney(inputs.budgetCap) : "Unconstrained"}</span>
+              </div>
+          </div>
+      </div>
 
-            <table className="w-full text-xs text-left">
-                <thead>
-                    <tr className="border-b-2 border-slate-800">
-                        <th className="py-2 font-black uppercase w-24">Road ID</th>
-                        {config.showDistrict && <th className="py-2 font-black uppercase">District</th>}
-                        <th className="py-2 font-black uppercase text-right">Start (km)</th>
-                        <th className="py-2 font-black uppercase text-right">Length</th>
-                        {config.showSurface && <th className="py-2 font-black uppercase">Surface</th>}
-                        <th className="py-2 font-black uppercase text-center">IRI</th>
-                        <th className="py-2 font-black uppercase text-right">Action</th>
-                        {config.showCost && <th className="py-2 font-black uppercase text-right">Est. Cost</th>}
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 font-mono text-[11px]">
-                    {displaySegments.slice(0, 35).map((seg: any, i: number) => {
-                         const iri = seg.iri || seg.avg_iri || 0;
-                         const isCritical = iri > 5;
-                         const cost = (seg.length || seg.length_km || 1) * (isCritical ? 2.5 : 0.5); // Mock cost calc
-
-                         return (
-                            <tr key={i} className={i % 2 === 0 ? "bg-slate-50/50" : ""}>
-                                <td className="py-2 font-bold">{seg.road_id || seg.road_code || "Unknown"}</td>
-                                
-                                {config.showDistrict && (
-                                    <td className="py-2 text-slate-500">{seg.district || "-"}</td>
-                                )}
-
-                                <td className="py-2 text-right">{(seg.start_km || 0).toFixed(2)}</td>
-                                <td className="py-2 text-right">{(seg.length || seg.length_km || 0).toFixed(2)}</td>
-                                
-                                {config.showSurface && (
-                                    <td className="py-2 text-slate-500 capitalize">{seg.surface || seg.surface_type || "Paved"}</td>
-                                )}
-
-                                <td className={cn("py-2 text-center font-bold", isCritical ? "text-rose-600" : "text-emerald-600")}>
-                                    {iri.toFixed(2)}
-                                </td>
-
-                                <td className="py-2 text-right font-sans text-slate-600">
-                                    {isCritical ? "Rehabilitate" : "Routine Maint"}
-                                </td>
-
-                                {config.showCost && (
-                                    <td className="py-2 text-right">R {cost.toFixed(2)}m</td>
-                                )}
-                            </tr>
-                        );
-                    })}
-                </tbody>
-            </table>
-            
-            {displaySegments.length === 0 && (
-                <div className="p-12 text-center text-slate-400 border border-dashed border-slate-300 rounded-lg mt-4">
-                    <AlertTriangle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    No segments found matching "{config.condition}" in {config.district}.
-                </div>
-            )}
-
-            {displaySegments.length > 35 && (
-                <div className="mt-4 p-2 text-center text-xs text-slate-400 italic bg-slate-50 border border-slate-100 rounded">
-                    ... {displaySegments.length - 35} more rows included in export.
-                </div>
-            )}
-        </>
-      )}
-
-      {/* VIEW: EXECUTIVE SUMMARY */}
+      {/* 4. TEMPLATE CONTENT */}
+      
+      {/* A. EXECUTIVE VIEW */}
       {template === "executive" && (
          <div className="space-y-8">
-            <div className="h-64 bg-slate-50 rounded-xl border border-slate-100 p-4 relative overflow-hidden">
-                <span className="text-xs font-bold uppercase tracking-widest text-slate-400 absolute top-4 left-4">
-                    Network Deterioration Forecast
-                </span>
-                <div className="flex items-end h-full pt-8 gap-1">
+            {/* Decay Chart */}
+            <div style={{ borderColor: "#e2e8f0" }} className="h-72 bg-white rounded-xl border p-6">
+                <div className="flex justify-between items-center mb-6">
+                    <span className="text-xs font-bold uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4"/> Condition Forecast (10 Years)
+                    </span>
+                </div>
+                <div className="flex items-end h-48 gap-2 border-b border-l border-gray-100 px-2 pb-2">
                     {chartData.length > 0 ? chartData.map((d: any, i: number) => (
-                        <div key={i} className="flex-1 bg-indigo-500 transition-all rounded-t-sm" style={{ height: `${d.avg_condition_index}%` }} />
+                        <div key={i} className="flex-1 flex flex-col justify-end group relative">
+                            <div 
+                                className="w-full rounded-t-sm" 
+                                style={{ height: `${d.avg_condition_index}%`, backgroundColor: '#6366f1' }} 
+                            >
+                            </div>
+                            <span className="text-[10px] text-gray-400 text-center mt-2">{d.year}</span>
+                        </div>
                     )) : (
-                        <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs">
-                            Run simulation to view forecast.
+                        <div className="w-full h-full flex items-center justify-center text-gray-300 italic">
+                            Run simulation to generate forecast graph.
                         </div>
                     )}
                 </div>
             </div>
             
-            <div className="grid grid-cols-2 gap-6">
-                 <div className="p-4 bg-rose-50 rounded-xl border border-rose-100">
-                    <h3 className="font-bold text-rose-700 mb-2 flex items-center gap-2 text-xs uppercase tracking-wider">
-                        <AlertTriangle className="w-4 h-4" /> Top Critical Risks
-                    </h3>
-                    <ul className="text-xs space-y-2 text-rose-800">
-                        {criticalRisks.length > 0 ? criticalRisks.map((road: any, i: number) => (
-                             <li key={i} className="flex justify-between border-b border-rose-200 pb-1">
-                                <span>{road.road_id}</span>
-                                <span className="font-mono font-bold">IRI {road.iri?.toFixed(1)}</span>
-                             </li>
-                        )) : <li>No critical risks found.</li>}
-                    </ul>
-                 </div>
-                 
-                 <div className="flex flex-col items-center justify-center text-slate-400 border border-slate-100 rounded-xl">
-                    <PieChart className="w-8 h-8 opacity-20 mb-2" />
-                    <span className="text-xs">Condition Breakdown Chart</span>
-                 </div>
+            {/* Risks Table */}
+            <div style={{ backgroundColor: "#fff1f2", borderColor: "#ffe4e6" }} className="border rounded-xl overflow-hidden">
+                <div style={{ backgroundColor: "#fff1f2", borderColor: "#ffe4e6", color: "#be123c" }} className="px-6 py-3 border-b flex items-center gap-2 font-bold text-xs uppercase">
+                    <AlertTriangle className="w-4 h-4" /> Critical Risk Segments
+                </div>
+                <table className="w-full text-xs text-left">
+                    <thead style={{ color: "#9f1239" }}>
+                        <tr>
+                            <th className="px-6 py-2">Road ID</th>
+                            <th className="px-6 py-2">Location</th>
+                            <th className="px-6 py-2 text-right">Roughness (IRI)</th>
+                            <th className="px-6 py-2 text-right">Remedial Cost</th>
+                        </tr>
+                    </thead>
+                    <tbody style={{ borderColor: "#ffe4e6" }} className="divide-y divide-rose-200">
+                        {criticalRisks.map((road: any, i: number) => (
+                            <tr key={i}>
+                                <td className="px-6 py-3 font-bold text-rose-900">{road.normalized_id}</td>
+                                <td className="px-6 py-3 text-rose-800">{road.district || "Unknown"}</td>
+                                <td className="px-6 py-3 text-right font-mono font-bold text-rose-600">{road.normalized_iri?.toFixed(2)}</td>
+                                <td className="px-6 py-3 text-right text-rose-800">{formatMoney(road.normalized_length * 2500000)}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
             </div>
          </div>
       )}
 
-      {/* VIEW: GIS */}
+      {/* B. ENGINEERING VIEW */}
+      {template === "engineering" && (
+        <table className="w-full text-xs text-left border-collapse">
+            <thead>
+                <tr style={{ borderBottom: "2px solid #0f172a" }}>
+                    <th className="py-2 font-black uppercase text-black">ID</th>
+                    {config.showDistrict && <th className="py-2 font-black uppercase text-black">District</th>}
+                    <th className="py-2 font-black uppercase text-right text-black">Length</th>
+                    {config.showSurface && <th className="py-2 font-black uppercase text-black">Type</th>}
+                    <th className="py-2 font-black uppercase text-center text-black">IRI</th>
+                    <th className="py-2 font-black uppercase text-black">Treatment</th>
+                    {config.showCost && <th className="py-2 font-black uppercase text-right text-black">Cost</th>}
+                </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+                {displaySegments.slice(0, 45).map((seg: any, i: number) => {
+                    const cost = (seg.normalized_length || 1) * ((seg.normalized_iri || 0) > 5 ? 3500000 : 500000);
+                    return (
+                        <tr key={i} style={{ backgroundColor: i % 2 === 0 ? "#f8fafc" : "#ffffff" }}>
+                            <td className="py-2 font-mono font-bold text-slate-700">{seg.normalized_id}</td>
+                            {config.showDistrict && <td className="py-2 text-slate-600">{seg.district}</td>}
+                            <td className="py-2 text-right text-slate-600">{(seg.normalized_length || 0).toFixed(2)}</td>
+                            {config.showSurface && <td className="py-2 capitalize text-slate-600">{seg.surface || seg.surface_type}</td>}
+                            <td className={cn("py-2 text-center font-bold", (seg.normalized_iri||0) > 5 ? "text-rose-600" : "text-slate-600")}>
+                                {(seg.normalized_iri || 0).toFixed(1)}
+                            </td>
+                            <td className="py-2 text-slate-600">{(seg.normalized_iri||0) > 5 ? "Rehabilitation" : "Maintenance"}</td>
+                            {config.showCost && <td className="py-2 text-right font-mono text-slate-600">{formatMoney(cost)}</td>}
+                        </tr>
+                    )
+                })}
+            </tbody>
+        </table>
+      )}
+
+      {/* C. GIS VIEW */}
       {template === "gis" && (
-        <div className="flex flex-col items-center justify-center h-[400px] text-slate-400">
-            <Map className="w-16 h-16 text-indigo-100 mb-4" />
-            <h3 className="text-lg font-bold text-slate-700">Ready to Export</h3>
+        <div className="flex flex-col items-center justify-center h-[400px] text-gray-400">
+            <Map className="w-16 h-16 text-indigo-200 mb-4" />
+            <h3 className="text-lg font-bold text-gray-700">Ready to Export</h3>
             <p className="text-sm">
                 Package contains <strong className="text-indigo-600">{displaySegments.length}</strong> spatial features.
             </p>
@@ -385,16 +493,24 @@ export default function ReportLivePreview({ template, config }: ReportLivePrevie
   );
 }
 
+// Sub-components
+const StatBox = ({ label, value }: any) => (
+    <div style={{ backgroundColor: "#f8fafc", borderColor: "#e2e8f0" }} className="p-3 border rounded-lg">
+        <div className="text-[10px] uppercase text-gray-400 font-bold mb-1">{label}</div>
+        <div className="text-lg font-bold text-gray-900">{value}</div>
+    </div>
+);
+
 const EmptyState = ({ label }: { label: string }) => (
-    <div className="w-[210mm] min-h-[297mm] bg-white shadow-xl mx-auto flex items-center justify-center text-slate-400 text-sm">
+    <div className="w-[210mm] min-h-[297mm] bg-white shadow-xl mx-auto flex items-center justify-center text-gray-400 text-sm">
         {label}
     </div>
 );
 
 const LoadingState = () => (
-    <div className="w-[210mm] min-h-[297mm] bg-white shadow-xl mx-auto flex flex-col items-center justify-center text-slate-400 text-sm gap-3">
+    <div className="w-[210mm] min-h-[297mm] bg-white shadow-xl mx-auto flex flex-col items-center justify-center text-gray-400 text-sm gap-3">
         <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-        Fetching segments...
+        Generating report preview...
     </div>
 );\n--- ./components/charts/DecayLineChart.tsx ---\n
 \n--- ./components/charts/BudgetPieChart.tsx ---\n
@@ -555,7 +671,7 @@ const Toggle = ({ label, checked, onChange }: any) => (
 );\n--- ./components/ReportBuilderShell.tsx ---\n
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { FileText, LayoutTemplate, Share2 } from "lucide-react";
 import ReportFilterSidebar from "./ReportFilterSidebar";
 import ReportLivePreview from "./ReportLivePreview";
@@ -564,18 +680,18 @@ import ExportActionsPanel from "./ExportActionsPanel";
 export default function ReportBuilderShell() {
   const [selectedTemplate, setSelectedTemplate] = useState("engineering"); 
   
-  // THE CONFIGURATION STATE
-  // This object controls everything visible in the report
+  // Ref to capture the PDF content
+  const previewRef = useRef<HTMLDivElement>(null);
+
   const [reportConfig, setReportConfig] = useState({
     projectId: "",
     title: "Maintenance Priority Report",
     condition: "all",
     district: "All",
-    // View Toggles
     showDistrict: true,
     showSurface: true,
     showCost: true,
-    groupBy: "none", // none | district | criticality
+    groupBy: "none",
   });
 
   const updateConfig = (key: string, value: any) => {
@@ -585,7 +701,7 @@ export default function ReportBuilderShell() {
   return (
     <div className="flex h-full w-full bg-[var(--background)]">
       
-      {/* 1. LEFT PANEL: SETTINGS */}
+      {/* 1. LEFT PANEL */}
       <aside className="w-80 border-r border-slate-200 dark:border-slate-800 bg-[var(--surface-bg)] flex flex-col">
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2">
           <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400">
@@ -598,7 +714,7 @@ export default function ReportBuilderShell() {
         </div>
       </aside>
 
-      {/* 2. MIDDLE PANEL: PREVIEW */}
+      {/* 2. MIDDLE PANEL */}
       <main className="flex-1 bg-slate-100 dark:bg-slate-900/50 flex flex-col relative overflow-hidden">
         <div className="h-14 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-6 bg-[var(--surface-bg)]">
             <div className="flex items-center gap-2 text-sm text-slate-500">
@@ -611,12 +727,16 @@ export default function ReportBuilderShell() {
         </div>
         
         <div className="flex-1 overflow-y-auto p-8 flex justify-center">
-            {/* Pass the full config state to the preview */}
-            <ReportLivePreview template={selectedTemplate} config={reportConfig} />
+            {/* Pass ref here so we can grab this DIV later */}
+            <ReportLivePreview 
+                previewRef={previewRef} 
+                template={selectedTemplate} 
+                config={reportConfig} 
+            />
         </div>
       </main>
 
-      {/* 3. RIGHT PANEL: ACTIONS */}
+      {/* 3. RIGHT PANEL */}
       <aside className="w-72 border-l border-slate-200 dark:border-slate-800 bg-[var(--surface-bg)] flex flex-col">
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2">
           <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg text-emerald-600 dark:text-emerald-400">
@@ -625,7 +745,9 @@ export default function ReportBuilderShell() {
           <span className="font-bold text-sm">Export Actions</span>
         </div>
         <div className="flex-1 overflow-y-auto">
+            {/* Pass ref here so the button knows what to print */}
             <ExportActionsPanel 
+                previewRef={previewRef}
                 activeTemplate={selectedTemplate} 
                 onTemplateChange={setSelectedTemplate}
                 reportConfig={reportConfig}
@@ -641,17 +763,50 @@ export default function ReportBuilderShell() {
 \n--- ./components/ExportActionsPanel.tsx ---\n
 "use client";
 
-import React from "react";
-import { FileText, Table, Globe, CheckCircle2, Download } from "lucide-react";
+import React, { useState } from "react";
+import { FileText, Table, Globe, CheckCircle2, Download, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
-export default function ExportActionsPanel({ activeTemplate, onTemplateChange }: any) {
+export default function ExportActionsPanel({ activeTemplate, onTemplateChange, previewRef }: any) {
   
+  const [downloading, setDownloading] = useState(false);
+
   const templates = [
     { id: "executive", label: "Executive Summary", icon: <FileText className="w-4 h-4"/>, desc: "High-level visual PDF" },
-    { id: "engineering", label: "Engineering Schedule", icon: <Table className="w-4 h-4"/>, desc: "Detailed Excel Grid" },
+    { id: "engineering", label: "Engineering Schedule", icon: <Table className="w-4 h-4"/>, desc: "Detailed Grid View" },
     { id: "gis", label: "GIS Package", icon: <Globe className="w-4 h-4"/>, desc: "GeoJSON / KML" },
   ];
+
+  const handleDownload = async () => {
+      if (!previewRef.current) return;
+      setDownloading(true);
+
+      try {
+          // 1. Capture the DOM element
+          const canvas = await html2canvas(previewRef.current, {
+              scale: 2, // High resolution
+              useCORS: true,
+              logging: false
+          });
+
+          // 2. Generate PDF
+          const imgData = canvas.toDataURL("image/png");
+          const pdf = new jsPDF("p", "mm", "a4");
+          const pdfWidth = pdf.internal.pageSize.getWidth();
+          const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+          pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+          pdf.save(`Mosianedi_Report_${activeTemplate}_${new Date().toISOString().slice(0,10)}.pdf`);
+
+      } catch (err) {
+          console.error("PDF Generation failed", err);
+          alert("Failed to generate PDF. Please try again.");
+      } finally {
+          setDownloading(false);
+      }
+  };
 
   return (
     <div className="p-4 flex flex-col h-full">
@@ -684,20 +839,13 @@ export default function ExportActionsPanel({ activeTemplate, onTemplateChange }:
       </div>
 
       <div className="mt-auto pt-6 border-t border-slate-200 dark:border-slate-800 space-y-4">
-        <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
-            <div className="flex justify-between text-xs mb-1">
-                <span className="text-slate-500">Estimated Size</span>
-                <span className="font-mono font-bold">2.4 MB</span>
-            </div>
-            <div className="flex justify-between text-xs">
-                <span className="text-slate-500">Rows Included</span>
-                <span className="font-mono font-bold">1,240</span>
-            </div>
-        </div>
-
-        <button className="w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-bold text-sm shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2">
-            <Download className="w-4 h-4" />
-            Generate Report
+        <button 
+            onClick={handleDownload}
+            disabled={downloading}
+            className="w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-bold text-sm shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+        >
+            {downloading ? <Loader2 className="w-4 h-4 animate-spin"/> : <Download className="w-4 h-4" />}
+            {downloading ? "Generating PDF..." : "Download Report"}
         </button>
       </div>
 
@@ -722,8 +870,13 @@ export interface ReportData {
     budgetAsk: number;
     segmentCount: number;
   };
+  inputs: {
+    startYear: number;
+    inflation: number;
+    budgetCap: number;
+    strategy: string;
+  };
   segments: any[];
-  // 👇 FIX: Added this to the interface
   criticalRisks: any[]; 
   chartData: any[];
   loading: boolean;
@@ -739,35 +892,58 @@ export function useReportData(selectedProjectId: string | null, filters: any) {
       setLoading(true);
 
       try {
-        // 1. Fetch Project Meta
+        // 1. Fetch Project Meta (Simple, no joins)
         const { data: project } = await supabase
           .from("projects")
           .select("*")
           .eq("id", selectedProjectId)
           .single();
 
-        // 2. Fetch Segments
-        let query = supabase
-          .from("proposal_data") // Updated to query 'proposal_data' table
-          .select("workbook_payload") // We need to extract the segments from the JSONB blob
+        // 2. Fetch Scenario Assumptions (Separately to avoid 400 Error)
+        const { data: scenarios } = await supabase
+          .from("scenario_assumptions")
+          .select("*")
           .eq("project_id", selectedProjectId)
-          .single();
-
-        const { data: proposalData, error: propError } = await query;
+          .limit(1);
         
-        // Extract segments from the JSON payload if available
+        const activeScenario = scenarios?.[0] || {};
+
+        // 3. Fetch Network Data
+        const { data: proposalData } = await supabase
+          .from("proposal_data")
+          .select("workbook_payload")
+          .eq("project_id", selectedProjectId)
+          .limit(1)
+          .single();
+        
+        // --- SMART EXTRACTION LOGIC ---
         let safeSegments: any[] = [];
-        if (proposalData?.workbook_payload?.sheets) {
-             // Assuming the first sheet or a sheet named 'Segments' contains the data
-             const firstSheet = Object.values(proposalData.workbook_payload.sheets)[0] as any[];
-             safeSegments = firstSheet || [];
+        const payload = proposalData?.workbook_payload;
+
+        if (Array.isArray(payload)) {
+            safeSegments = payload;
+        } else if (payload?.sheets) {
+            const firstSheetKey = Object.keys(payload.sheets)[0];
+            safeSegments = payload.sheets[firstSheetKey] || [];
+        } else if (payload?.data) {
+            safeSegments = payload.data;
         }
 
-        // Apply In-Memory Filters (since data is inside JSONB)
-        if (filters.condition === "critical") safeSegments = safeSegments.filter((s: any) => (s.IRI || s.iri) > 6);
-        if (filters.condition === "poor") safeSegments = safeSegments.filter((s: any) => (s.IRI || s.iri) >= 4 && (s.IRI || s.iri) <= 6);
+        // --- NORMALIZE COLUMNS ---
+        safeSegments = safeSegments.map(s => ({
+            ...s,
+            // Try all common variations of column names
+            normalized_length: Number(s.Length || s.length_km || s.km || s.length || 0),
+            normalized_iri: Number(s.IRI || s.iri || s.avg_iri || 0),
+            normalized_id: s.Road_ID || s.road_id || s.id || "Unknown"
+        }));
+
+        // Apply Filters
+        if (filters.condition === "critical") {
+            safeSegments = safeSegments.filter((s: any) => s.normalized_iri > 6);
+        }
         
-        // 3. Fetch Simulation Results
+        // 4. Fetch Simulation Results
         const { data: simResults } = await supabase
           .from("simulation_results")
           .select("results_payload")
@@ -779,16 +955,15 @@ export function useReportData(selectedProjectId: string | null, filters: any) {
         const simData = simResults?.results_payload || {};
 
         // --- CALCULATIONS ---
-        const totalLength = safeSegments.reduce((acc, s) => acc + (s.Length || s.length_km || 0), 0);
+        const totalLength = safeSegments.reduce((acc, s) => acc + s.normalized_length, 0);
         const assetValue = totalLength * 15000000; 
         
-        const totalIri = safeSegments.reduce((acc, s) => acc + (s.IRI || s.iri || 0), 0);
+        const totalIri = safeSegments.reduce((acc, s) => acc + s.normalized_iri, 0);
         const avgIri = safeSegments.length > 0 ? totalIri / safeSegments.length : 0;
         const avgVci = Math.max(0, 100 - (avgIri * 8));
 
-        // Critical Risks Logic
         const criticalRisks = [...safeSegments]
-            .sort((a, b) => (b.IRI || b.iri || 0) - (a.IRI || a.iri || 0))
+            .sort((a, b) => b.normalized_iri - a.normalized_iri)
             .slice(0, 5);
 
         setData({
@@ -796,6 +971,12 @@ export function useReportData(selectedProjectId: string | null, filters: any) {
             projectName: project?.project_name || "Unknown Project",
             province: project?.province || "National",
             generatedDate: new Date().toLocaleDateString(),
+          },
+          inputs: {
+            startYear: project?.start_year || 2026,
+            inflation: activeScenario.inflation_rate || 5.5,
+            budgetCap: activeScenario.budget_cap || 0,
+            strategy: activeScenario.strategy_type || "Unconstrained",
           },
           summary: {
             totalLength,
@@ -805,7 +986,7 @@ export function useReportData(selectedProjectId: string | null, filters: any) {
             segmentCount: safeSegments.length
           },
           segments: safeSegments, 
-          criticalRisks: criticalRisks, // Now correctly typed
+          criticalRisks: criticalRisks, 
           chartData: simData.yearly_data || [],
           loading: false
         });

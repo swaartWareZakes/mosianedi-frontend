@@ -12,15 +12,25 @@ export interface ReportData {
   summary: {
     totalLength: number;
     assetValue: number;
-    avgCondition: number; 
+    avgCondition: number;
     budgetAsk: number;
     segmentCount: number;
   };
+  inputs: {
+    startYear: number;
+    inflation: number;
+    budgetCap: number;
+    strategy: string;
+  };
   segments: any[];
-  // 👇 FIX: Added this to the interface
-  criticalRisks: any[]; 
+  criticalRisks: any[];
   chartData: any[];
   loading: boolean;
+}
+
+function toNumber(v: any) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
 }
 
 export function useReportData(selectedProjectId: string | null, filters: any) {
@@ -28,91 +38,139 @@ export function useReportData(selectedProjectId: string | null, filters: any) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function fetchData() {
       if (!selectedProjectId) return;
       setLoading(true);
 
       try {
-        // 1. Fetch Project Meta
-        const { data: project } = await supabase
+        // 1) Project meta
+        const { data: project, error: projectErr } = await supabase
           .from("projects")
           .select("*")
           .eq("id", selectedProjectId)
-          .single();
+          .maybeSingle();
 
-        // 2. Fetch Segments
-        let query = supabase
-          .from("proposal_data") // Updated to query 'proposal_data' table
-          .select("workbook_payload") // We need to extract the segments from the JSONB blob
+        if (projectErr) console.warn("project fetch error:", projectErr);
+
+        // 2) Scenario assumptions
+        const { data: scenarios, error: scenErr } = await supabase
+          .from("scenario_assumptions")
+          .select("*")
           .eq("project_id", selectedProjectId)
-          .single();
+          .order("created_at", { ascending: false })
+          .limit(1);
 
-        const { data: proposalData, error: propError } = await query;
-        
-        // Extract segments from the JSON payload if available
+        if (scenErr) console.warn("scenario fetch error:", scenErr);
+
+        const activeScenario = scenarios?.[0] || {};
+
+        // 3) Proposal workbook payload (DO NOT use .single() -> causes 406 when no rows)
+        const { data: proposalData, error: proposalErr } = await supabase
+          .from("proposal_data")
+          .select("workbook_payload")
+          .eq("project_id", selectedProjectId)
+          .maybeSingle();
+
+        if (proposalErr) console.warn("proposal_data fetch error:", proposalErr);
+
+        // ---- extract segments safely from many possible payload shapes
         let safeSegments: any[] = [];
-        if (proposalData?.workbook_payload?.sheets) {
-             // Assuming the first sheet or a sheet named 'Segments' contains the data
-             const firstSheet = Object.values(proposalData.workbook_payload.sheets)[0] as any[];
-             safeSegments = firstSheet || [];
+        const payload = proposalData?.workbook_payload;
+
+        if (Array.isArray(payload)) {
+          safeSegments = payload;
+        } else if (payload?.sheets && typeof payload.sheets === "object") {
+          const firstSheetKey = Object.keys(payload.sheets)[0];
+          safeSegments = Array.isArray(payload.sheets[firstSheetKey]) ? payload.sheets[firstSheetKey] : [];
+        } else if (Array.isArray(payload?.data)) {
+          safeSegments = payload.data;
+        } else if (Array.isArray(payload?.rows)) {
+          safeSegments = payload.rows;
+        } else if (Array.isArray(payload?.features)) {
+          // sometimes geojson-ish
+          safeSegments = payload.features.map((f: any) => f?.properties || f);
         }
 
-        // Apply In-Memory Filters (since data is inside JSONB)
-        if (filters.condition === "critical") safeSegments = safeSegments.filter((s: any) => (s.IRI || s.iri) > 6);
-        if (filters.condition === "poor") safeSegments = safeSegments.filter((s: any) => (s.IRI || s.iri) >= 4 && (s.IRI || s.iri) <= 6);
-        
-        // 3. Fetch Simulation Results
-        const { data: simResults } = await supabase
+        // normalize common columns
+        safeSegments = safeSegments.map((s) => ({
+          ...s,
+          normalized_length: toNumber(s.Length ?? s.length_km ?? s.km ?? s.length ?? s.NORMALIZED_LENGTH ?? 0),
+          normalized_iri: toNumber(s.IRI ?? s.iri ?? s.avg_iri ?? s.roughness ?? s.NORMALIZED_IRI ?? 0),
+          normalized_id: s.Road_ID ?? s.road_id ?? s.roadid ?? s.id ?? s.ID ?? "Unknown",
+          district: s.district ?? s.District ?? s.region ?? s.Region ?? "",
+          surface: s.surface ?? s.surface_type ?? s.Surface ?? "",
+        }));
+
+        // filters
+        if (filters?.condition === "critical") {
+          safeSegments = safeSegments.filter((s: any) => (s.normalized_iri || 0) > 6);
+        }
+
+        // 4) Simulation results (DO NOT .single() -> causes 406 if empty)
+        const { data: simResults, error: simErr } = await supabase
           .from("simulation_results")
           .select("results_payload")
           .eq("project_id", selectedProjectId)
           .order("run_at", { ascending: false })
           .limit(1)
-          .single();
+          .maybeSingle();
+
+        if (simErr) console.warn("simulation_results fetch error:", simErr);
 
         const simData = simResults?.results_payload || {};
 
-        // --- CALCULATIONS ---
-        const totalLength = safeSegments.reduce((acc, s) => acc + (s.Length || s.length_km || 0), 0);
-        const assetValue = totalLength * 15000000; 
-        
-        const totalIri = safeSegments.reduce((acc, s) => acc + (s.IRI || s.iri || 0), 0);
+        // calculations
+        const totalLength = safeSegments.reduce((acc, s) => acc + toNumber(s.normalized_length), 0);
+        const assetValue = totalLength * 15_000_000;
+
+        const totalIri = safeSegments.reduce((acc, s) => acc + toNumber(s.normalized_iri), 0);
         const avgIri = safeSegments.length > 0 ? totalIri / safeSegments.length : 0;
-        const avgVci = Math.max(0, 100 - (avgIri * 8));
+        const avgVci = Math.max(0, 100 - avgIri * 8);
 
-        // Critical Risks Logic
         const criticalRisks = [...safeSegments]
-            .sort((a, b) => (b.IRI || b.iri || 0) - (a.IRI || a.iri || 0))
-            .slice(0, 5);
+          .sort((a, b) => toNumber(b.normalized_iri) - toNumber(a.normalized_iri))
+          .slice(0, 5);
 
-        setData({
+        const nextData: ReportData = {
           meta: {
             projectName: project?.project_name || "Unknown Project",
             province: project?.province || "National",
             generatedDate: new Date().toLocaleDateString(),
           },
+          inputs: {
+            startYear: project?.start_year || 2026,
+            inflation: toNumber(activeScenario.inflation_rate || 5.5),
+            budgetCap: toNumber(activeScenario.budget_cap || 0),
+            strategy: activeScenario.strategy_type || "Unconstrained",
+          },
           summary: {
             totalLength,
             assetValue,
             avgCondition: avgVci,
-            budgetAsk: simData.total_cost_npv || 0,
-            segmentCount: safeSegments.length
+            budgetAsk: toNumber(simData.total_cost_npv || 0),
+            segmentCount: safeSegments.length,
           },
-          segments: safeSegments, 
-          criticalRisks: criticalRisks, // Now correctly typed
-          chartData: simData.yearly_data || [],
-          loading: false
-        });
+          segments: safeSegments,
+          criticalRisks,
+          chartData: Array.isArray(simData.yearly_data) ? simData.yearly_data : [],
+          loading: false,
+        };
 
+        if (!cancelled) setData(nextData);
       } catch (err) {
         console.error("Report Fetch Error:", err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
 
     fetchData();
-  }, [selectedProjectId, filters.condition]); 
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedProjectId, filters?.condition]);
 
   return { data, loading };
 }
