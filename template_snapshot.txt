@@ -1,4 +1,13 @@
-\n--- ./(app)/settings/components/AppearanceTab.tsx ---\n
+\n--- ./types/project.ts ---\n
+// ./types/project.ts
+export type NewProject = {
+    project_name: string;
+    description: string;
+    start_year: number;
+    forecast_duration: number;
+    discount_rate: number;
+    // user_id will be derived from the session on the backend
+  };\n--- ./app/(app)/settings/components/AppearanceTab.tsx ---\n
 "use client";
 
 import React, { useState } from "react";
@@ -81,7 +90,7 @@ export default function AppearanceTab() {
 
     </div>
   );
-}\n--- ./(app)/settings/components/SecurityTab.tsx ---\n
+}\n--- ./app/(app)/settings/components/SecurityTab.tsx ---\n
 "use client";
 
 import React, { useState } from "react";
@@ -209,7 +218,7 @@ function DeviceRow({ icon, name, location, active, lastActive }: any) {
             </div>
         </div>
     )
-}\n--- ./(app)/settings/components/NotificationsTab.tsx ---\n
+}\n--- ./app/(app)/settings/components/NotificationsTab.tsx ---\n
 "use client";
 
 import React, { useState } from "react";
@@ -281,7 +290,7 @@ function ToggleRow({ label, desc, defaultChecked }: any) {
             </button>
         </div>
     )
-}\n--- ./(app)/settings/page.tsx ---\n
+}\n--- ./app/(app)/settings/page.tsx ---\n
 "use client";
 
 import React, { useState } from "react";
@@ -365,7 +374,7 @@ export default function SettingsPage() {
       </div>
     </div>
   );
-}\n--- ./(app)/presentationmode/page.tsx ---\n
+}\n--- ./app/(app)/presentationmode/page.tsx ---\n
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -582,7 +591,7 @@ export default function PresentationHub() {
       </div>
     </div>
   );
-}\n--- ./(app)/projects/ProjectCreateForm.tsx ---\n
+}\n--- ./app/(app)/projects/ProjectCreateForm.tsx ---\n
 "use client";
 
 import React, { useState } from "react";
@@ -756,7 +765,7 @@ export function ProjectCreateForm({ onClose }: ProjectCreateFormProps) {
       </div>
     </div>
   );
-}\n--- ./(app)/projects/[projectId]/config/types.ts ---\n
+}\n--- ./app/(app)/projects/[projectId]/config/types.ts ---\n
 // app/(app)/projects/[projectId]/config/types.ts
 
 // --- Upload / Master Data Types (Legacy/Support) ---
@@ -890,7 +899,7 @@ export type ProposalDataPatch = Partial<
     | "target_vci"
     | "extra_inputs"
   >
->;\n--- ./(app)/projects/[projectId]/config/components/ProvincialStatsCard.tsx ---\n
+>;\n--- ./app/(app)/projects/[projectId]/config/components/ProvincialStatsCard.tsx ---\n
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -1177,7 +1186,7 @@ export function ProvincialStatsCard({ projectId }: { projectId: string }) {
       </div>
     </div>
   );
-}\n--- ./(app)/projects/[projectId]/config/components/RunSimulationCard.tsx ---\n
+}\n--- ./app/(app)/projects/[projectId]/config/components/RunSimulationCard.tsx ---\n
 "use client";
 
 import React, { useState } from "react";
@@ -1374,7 +1383,7 @@ export function RunSimulationCard({ projectId }: { projectId: string }) {
       </div>
     </div>
   );
-}\n--- ./(app)/projects/[projectId]/config/components/ProposalDataSummaryCard.tsx ---\n
+}\n--- ./app/(app)/projects/[projectId]/config/components/ProposalDataSummaryCard.tsx ---\n
 "use client";
 
 import React, { useMemo } from "react";
@@ -1512,7 +1521,7 @@ function SummaryRow({ label, value, icon, highlight }: { label: string; value: s
             </span>
         </div>
     );
-}\n--- ./(app)/projects/[projectId]/config/components/UploadStatusCard.tsx ---\n
+}\n--- ./app/(app)/projects/[projectId]/config/components/UploadStatusCard.tsx ---\n
 // app/(app)/projects/[projectId]/config/components/UploadStatusCard.tsx
 "use client";
 
@@ -1734,7 +1743,7 @@ export const UploadStatusCard: React.FC<UploadStatusCardProps> = ({
       </div>
     </div>
   );
-};\n--- ./(app)/projects/[projectId]/config/components/DataPreviewTable.tsx ---\n
+};\n--- ./app/(app)/projects/[projectId]/config/components/DataPreviewTable.tsx ---\n
 // app/(app)/projects/[projectId]/config/components/DataPreviewTable.tsx
 "use client";
 
@@ -1833,7 +1842,7 @@ export const DataPreviewTable: React.FC<DataPreviewTableProps> = ({
       </div>
     </div>
   );
-};\n--- ./(app)/projects/[projectId]/config/components/ScenarioAssumptionsCard.tsx ---\n
+};\n--- ./app/(app)/projects/[projectId]/config/components/ScenarioAssumptionsCard.tsx ---\n
 "use client";
 
 import React from "react";
@@ -1960,7 +1969,7 @@ export function ScenarioAssumptionsCard({ projectId }: { projectId: string }) {
       </div>
     </div>
   );
-}\n--- ./(app)/projects/[projectId]/config/components/ProposalInputsCard.tsx ---\n
+}\n--- ./app/(app)/projects/[projectId]/config/components/ProposalInputsCard.tsx ---\n
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -2187,7 +2196,7 @@ function SelectField({ label, value, onChange, options }: { label: string; value
       </select>
     </div>
   );
-}\n--- ./(app)/projects/[projectId]/config/components/NetworkSnapshotCard.tsx ---\n
+}\n--- ./app/(app)/projects/[projectId]/config/components/NetworkSnapshotCard.tsx ---\n
 "use client";
 
 import React from "react";
@@ -2337,7 +2346,7 @@ export function NetworkSnapshotCard({ projectId }: { projectId: string }) {
       )}
     </div>
   );
-}\n--- ./(app)/projects/[projectId]/config/hooks/useForecast.ts ---\n
+}\n--- ./app/(app)/projects/[projectId]/config/hooks/useForecast.ts ---\n
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -2414,7 +2423,7 @@ export function useForecast(projectId: string) {
   };
 
   return { data, loading, saving, updateField };
-}\n--- ./(app)/projects/[projectId]/config/hooks/useSimulationRun.ts ---\n
+}\n--- ./app/(app)/projects/[projectId]/config/hooks/useSimulationRun.ts ---\n
 "use client";
 
 import { useState } from "react";
@@ -2485,7 +2494,7 @@ export function useSimulationRun(projectId: string) {
     error,
     result
   };
-}\n--- ./(app)/projects/[projectId]/config/hooks/useProjectMeta.ts ---\n
+}\n--- ./app/(app)/projects/[projectId]/config/hooks/useProjectMeta.ts ---\n
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -2534,7 +2543,7 @@ export function useProjectMeta(projectId: string) {
   }, [fetchMeta]);
 
   return { data, loading };
-}\n--- ./(app)/projects/[projectId]/config/hooks/useMasterDataUpload.ts ---\n
+}\n--- ./app/(app)/projects/[projectId]/config/hooks/useMasterDataUpload.ts ---\n
 // app/(app)/projects/[projectId]/config/hooks/useMasterDataUpload.ts
 "use client";
 
@@ -2911,7 +2920,7 @@ export function useMasterDataUpload(projectId: string) {
     // utilities
     refreshHistory: fetchUploadsHistory,
   };
-}\n--- ./(app)/projects/[projectId]/config/hooks/useProposalData.ts ---\n
+}\n--- ./app/(app)/projects/[projectId]/config/hooks/useProposalData.ts ---\n
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -3022,7 +3031,7 @@ export function useProposalData(projectId: string) {
     refetch: fetchProposalData,
     patchProposalData,
   };
-}\n--- ./(app)/projects/[projectId]/config/hooks/useNetworkSnapshot.ts ---\n
+}\n--- ./app/(app)/projects/[projectId]/config/hooks/useNetworkSnapshot.ts ---\n
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -3087,7 +3096,7 @@ export function useNetworkSnapshot(projectId: string) {
   }, [fetchSnapshot]);
 
   return { data, loading, error, refetch: fetchSnapshot };
-}\n--- ./(app)/projects/[projectId]/config/page.tsx ---\n
+}\n--- ./app/(app)/projects/[projectId]/config/page.tsx ---\n
 "use client";
 
 import React from "react";
@@ -3255,7 +3264,7 @@ export default function ProjectConfigPage() {
       </div>
     </div>
   );
-}\n--- ./(app)/projects/[projectId]/config/DataInputCard.tsx ---\n
+}\n--- ./app/(app)/projects/[projectId]/config/DataInputCard.tsx ---\n
 /* --- app/(app)/projects/[projectId]/config/DataInputCard.tsx --- */
 "use client";
 
@@ -3407,7 +3416,7 @@ export function DataInputCard({ projectId }: { projectId: string }) {
       </div>
     </div>
   );
-}\n--- ./(app)/projects/[projectId]/dashboard/types.ts ---\n
+}\n--- ./app/(app)/projects/[projectId]/dashboard/types.ts ---\n
 // app/(app)/dashboard/types.ts
 
 export type Project = {
@@ -3429,7 +3438,7 @@ export type Dashboard = {
   overrides?: any | null;
   createdAt: string;
   updatedAt: string;
-};\n--- ./(app)/projects/[projectId]/dashboard/components/ScenarioImpactCard.tsx ---\n
+};\n--- ./app/(app)/projects/[projectId]/dashboard/components/ScenarioImpactCard.tsx ---\n
 // app/(app)/dashboard/components/ScenarioImpactCard.tsx
 "use client";
 
@@ -3460,7 +3469,7 @@ export function ScenarioImpactCard({ adjustedAssetValue }: Props) {
       </p>
     </div>
   );
-}\n--- ./(app)/projects/[projectId]/dashboard/components/AiInsightChip.tsx ---\n
+}\n--- ./app/(app)/projects/[projectId]/dashboard/components/AiInsightChip.tsx ---\n
 "use client";
 
 import React from "react";
@@ -3495,7 +3504,7 @@ export function AiInsightChip({ text, loading }: { text?: string; loading: boole
       </div>
     </div>
   );
-}\n--- ./(app)/projects/[projectId]/dashboard/components/ProjectDashboardSelector.tsx ---\n
+}\n--- ./app/(app)/projects/[projectId]/dashboard/components/ProjectDashboardSelector.tsx ---\n
 // app/(app)/dashboard/components/ProjectDashboardSelector.tsx
 "use client";
 
@@ -3667,7 +3676,7 @@ export function ProjectDashboardSelector({
       )}
     </section>
   );
-}\n--- ./(app)/projects/[projectId]/dashboard/components/SimulationCharts.tsx ---\n
+}\n--- ./app/(app)/projects/[projectId]/dashboard/components/SimulationCharts.tsx ---\n
 "use client";
 
 import React from "react";
@@ -3756,7 +3765,7 @@ export function SimulationCharts({ results }: Props) {
 
     </div>
   );
-}\n--- ./(app)/projects/[projectId]/dashboard/components/DashboardHeader.tsx ---\n
+}\n--- ./app/(app)/projects/[projectId]/dashboard/components/DashboardHeader.tsx ---\n
 // app/(app)/dashboard/components/DashboardHeader.tsx
 "use client";
 
@@ -3777,7 +3786,7 @@ export function DashboardHeader() {
       </p>
     </header>
   );
-}\n--- ./(app)/projects/[projectId]/dashboard/components/AiStrategyCard.tsx ---\n
+}\n--- ./app/(app)/projects/[projectId]/dashboard/components/AiStrategyCard.tsx ---\n
 "use client";
 
 import React from "react";
@@ -3899,7 +3908,7 @@ export function AiStrategyCard({ analysis, loading, error, onGenerate }: Props) 
       </div>
     </div>
   );
-}\n--- ./(app)/projects/[projectId]/dashboard/components/ScenarioControlsCard.tsx ---\n
+}\n--- ./app/(app)/projects/[projectId]/dashboard/components/ScenarioControlsCard.tsx ---\n
 "use client";
 
 import React from "react";
@@ -4023,7 +4032,7 @@ export function ScenarioControlsCard({
       </div>
     </div>
   );
-}\n--- ./(app)/projects/[projectId]/dashboard/components/ScenarioControls.tsx ---\n
+}\n--- ./app/(app)/projects/[projectId]/dashboard/components/ScenarioControls.tsx ---\n
 // app/(app)/dashboard/components/ScenarioControls.tsx
 "use client";
 
@@ -4147,7 +4156,7 @@ export function ScenarioControls({
       </div>
     </div>
   );
-}\n--- ./(app)/projects/[projectId]/dashboard/components/DashboardMainPanel.tsx ---\n
+}\n--- ./app/(app)/projects/[projectId]/dashboard/components/DashboardMainPanel.tsx ---\n
 "use client";
 
 import React, { useMemo } from "react";
@@ -4347,7 +4356,7 @@ export function DashboardMainPanel({
       />
     </div>
   );
-}\n--- ./(app)/projects/[projectId]/dashboard/hooks/useAiAdvisor.ts ---\n
+}\n--- ./app/(app)/projects/[projectId]/dashboard/hooks/useAiAdvisor.ts ---\n
 "use client";
 
 import { useState } from "react";
@@ -4403,7 +4412,7 @@ export function useAiAdvisor(projectId: string) {
   };
 
   return { analysis, loading, error, generateAnalysis };
-}\n--- ./(app)/projects/[projectId]/dashboard/hooks/useSimulationResults.ts ---\n
+}\n--- ./app/(app)/projects/[projectId]/dashboard/hooks/useSimulationResults.ts ---\n
 "use client";
 
 import { useState, useEffect } from "react";
@@ -4452,7 +4461,7 @@ export function useSimulationResults(projectId: string) {
   }, [projectId]);
 
   return { results, loading, error };
-}\n--- ./(app)/projects/[projectId]/dashboard/hooks/useProjectDashboards.ts ---\n
+}\n--- ./app/(app)/projects/[projectId]/dashboard/hooks/useProjectDashboards.ts ---\n
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -4580,7 +4589,7 @@ export function useProjectDashboards(projectId: string | undefined) {
     createDashboard,
     updateDashboard,
   };
-}\n--- ./(app)/projects/[projectId]/dashboard/page.tsx ---\n
+}\n--- ./app/(app)/projects/[projectId]/dashboard/page.tsx ---\n
 "use client";
 
 import React, { useMemo } from "react";
@@ -4680,7 +4689,7 @@ export default function ProjectDashboardPage() {
 
     </div>
   );
-}\n--- ./(app)/projects/[projectId]/components/ProjectNavBar.tsx ---\n
+}\n--- ./app/(app)/projects/[projectId]/components/ProjectNavBar.tsx ---\n
 "use client";
 
 import Link from "next/link";
@@ -4726,7 +4735,7 @@ export function ProjectNavBar({ projectId }: { projectId: string }) {
       </div>
     </div>
   );
-}\n--- ./(app)/projects/[projectId]/governance/page.tsx ---\n
+}\n--- ./app/(app)/projects/[projectId]/governance/page.tsx ---\n
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -5138,7 +5147,7 @@ function formatLogAction(action: string) {
     if (action === 'config_update') return 'updated configuration';
     if (action === 'simulation_run') return 'ran a simulation';
     return 'updated project';
-}\n--- ./(app)/projects/[projectId]/presentation/setup/page.tsx ---\n
+}\n--- ./app/(app)/projects/[projectId]/presentation/setup/page.tsx ---\n
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -5410,7 +5419,7 @@ function ModuleCard({ icon, title, desc, active, onClick }: any) {
             </div>
         </button>
     );
-}\n--- ./(app)/projects/[projectId]/presentation/live/components/LiveMap.tsx ---\n
+}\n--- ./app/(app)/projects/[projectId]/presentation/live/components/LiveMap.tsx ---\n
 "use client";
 
 import React, { useEffect, useState, useMemo } from "react";
@@ -5525,7 +5534,7 @@ export default function LiveMap({ activeLayer, segments, province = "Gauteng" }:
       ))}
     </MapContainer>
   );
-}\n--- ./(app)/projects/[projectId]/presentation/live/page.tsx ---\n
+}\n--- ./app/(app)/projects/[projectId]/presentation/live/page.tsx ---\n
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
@@ -5799,7 +5808,7 @@ function BenefitItem({ icon, title, desc }: any) {
             </div>
         </div>
     );
-}\n--- ./(app)/projects/[projectId]/presentation/share/page.tsx ---\n
+}\n--- ./app/(app)/projects/[projectId]/presentation/share/page.tsx ---\n
 "use client";
 
 import React, { useState } from "react";
@@ -5967,7 +5976,7 @@ function ActivityIcon({ className }: { className?: string }) {
             <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
         </svg>
     )
-}\n--- ./(app)/projects/governance/page.tsx ---\n
+}\n--- ./app/(app)/projects/governance/page.tsx ---\n
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -6149,7 +6158,7 @@ function StatusBadge({ status }: { status: string }) {
             {activeConfig.label}
         </span>
     );
-}\n--- ./(app)/projects/page.tsx ---\n
+}\n--- ./app/(app)/projects/page.tsx ---\n
 "use client";
 
 import React, { useEffect, useState, useMemo } from "react";
@@ -6441,7 +6450,7 @@ function ProjectCard({ project }: { project: Project }) {
             </div>
         </Link>
     );
-}\n--- ./(app)/projects/recent/page.tsx ---\n
+}\n--- ./app/(app)/projects/recent/page.tsx ---\n
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -6654,7 +6663,7 @@ function LogItem({ log }: { log: ActivityLog }) {
             </div>
         </div>
     );
-}\n--- ./(app)/network/components/NetworkInspector.tsx ---\n
+}\n--- ./app/(app)/network/components/NetworkInspector.tsx ---\n
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
@@ -6954,7 +6963,7 @@ export function NetworkInspector({ selectedSegment, province = "Gauteng" }: Insp
         </div>
     </div>
   );
-}\n--- ./(app)/network/components/NetworkProjectSelector.tsx ---\n
+}\n--- ./app/(app)/network/components/NetworkProjectSelector.tsx ---\n
 // app/(app)/network/components/NetworkProjectSelector.tsx
 "use client";
 
@@ -7066,7 +7075,7 @@ export function NetworkProjectSelector({
       )}
     </section>
   );
-}\n--- ./(app)/network/components/NetworkBreakdowns.tsx ---\n
+}\n--- ./app/(app)/network/components/NetworkBreakdowns.tsx ---\n
 "use client";
 
 import React from "react";
@@ -7204,7 +7213,7 @@ export function NetworkBreakdowns({ snapshot }: Props) {
 
     </div>
   );
-}\n--- ./(app)/network/components/RealModel3D.tsx ---\n
+}\n--- ./app/(app)/network/components/RealModel3D.tsx ---\n
 "use client";
 
 import React, { useMemo, useRef, useState, Suspense } from "react";
@@ -7605,7 +7614,7 @@ export default function RealModel3D({
       </Canvas>
     </div>
   );
-}\n--- ./(app)/network/components/LiveMap.tsx ---\n
+}\n--- ./app/(app)/network/components/LiveMap.tsx ---\n
 "use client";
 
 import React, { useEffect, useState, useMemo } from "react";
@@ -7911,7 +7920,7 @@ export default function LiveMap({ province = "Gauteng", onSegmentSelect }: LiveM
       </div>
     </div>
   );
-}\n--- ./(app)/network/components/NetworkSnapshotSummary.tsx ---\n
+}\n--- ./app/(app)/network/components/NetworkSnapshotSummary.tsx ---\n
 "use client";
 
 import React from "react";
@@ -8023,7 +8032,7 @@ export function NetworkSnapshotSummary({ snapshot, loading, error }: Props) {
 
     </div>
   );
-}\n--- ./(app)/network/page.tsx ---\n
+}\n--- ./app/(app)/network/page.tsx ---\n
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -8203,7 +8212,7 @@ export default function NetworkPage() {
       )}
     </div>
   );
-}\n--- ./(app)/dashboard/page.tsx ---\n
+}\n--- ./app/(app)/dashboard/page.tsx ---\n
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -8308,7 +8317,7 @@ export default function DashboardHub() {
         )}
       </div>
     );
-}\n--- ./(app)/profile/components/ProfileHeader.tsx ---\n
+}\n--- ./app/(app)/profile/components/ProfileHeader.tsx ---\n
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -8447,7 +8456,7 @@ export default function ProfileHeader() {
 
     </div>
   );
-}\n--- ./(app)/profile/components/ActivityLog.tsx ---\n
+}\n--- ./app/(app)/profile/components/ActivityLog.tsx ---\n
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -8513,7 +8522,7 @@ export default function ActivityLog() {
       </div>
     </div>
   );
-}\n--- ./(app)/profile/components/ProjectHistory.tsx ---\n
+}\n--- ./app/(app)/profile/components/ProjectHistory.tsx ---\n
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -8598,7 +8607,7 @@ export default function ProjectHistory() {
       )}
     </div>
   );
-}\n--- ./(app)/profile/components/SecuritySettings.tsx ---\n
+}\n--- ./app/(app)/profile/components/SecuritySettings.tsx ---\n
 "use client";
 
 import React, { useState } from "react";
@@ -8668,7 +8677,7 @@ export default function SecuritySettings() {
       </button>
     </div>
   );
-}\n--- ./(app)/profile/page.tsx ---\n
+}\n--- ./app/(app)/profile/page.tsx ---\n
 "use client";
 
 import React from "react";
@@ -8706,7 +8715,7 @@ export default function ProfilePage() {
       </div>
     </div>
   );
-}\n--- ./(app)/layout.tsx ---\n
+}\n--- ./app/(app)/layout.tsx ---\n
 /* --- ./app/(app)/layout.tsx (UPDATED) --- */
 "use client";
 
@@ -8756,7 +8765,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       </div>
     </div>
   );
-}\n--- ./(app)/reports/treasury-view/page.tsx ---\n
+}\n--- ./app/(app)/reports/treasury-view/page.tsx ---\n
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -9038,7 +9047,7 @@ function CheckItem({ label, checked }: any) {
             <span className={cn(checked ? "text-slate-700 dark:text-slate-200" : "text-slate-400")}>{label}</span>
         </div>
     )
-}\n--- ./(app)/reports/components/ReportLivePreview.tsx ---\n
+}\n--- ./app/(app)/reports/components/ReportLivePreview.tsx ---\n
 "use client";
 
 import React from "react";
@@ -9295,9 +9304,9 @@ const LoadingState = () => (
     <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
     Generating report preview...
   </div>
-);\n--- ./(app)/reports/components/charts/DecayLineChart.tsx ---\n
-\n--- ./(app)/reports/components/charts/BudgetPieChart.tsx ---\n
-\n--- ./(app)/reports/components/ReportFilterSidebar.tsx ---\n
+);\n--- ./app/(app)/reports/components/charts/DecayLineChart.tsx ---\n
+\n--- ./app/(app)/reports/components/charts/BudgetPieChart.tsx ---\n
+\n--- ./app/(app)/reports/components/ReportFilterSidebar.tsx ---\n
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -9451,7 +9460,7 @@ const Toggle = ({ label, checked, onChange }: any) => (
             <div className={`w-3 h-3 bg-white rounded-full shadow-sm transition-transform ${checked ? 'translate-x-4' : ''}`} />
         </div>
     </label>
-);\n--- ./(app)/reports/components/ReportBuilderShell.tsx ---\n
+);\n--- ./app/(app)/reports/components/ReportBuilderShell.tsx ---\n
 "use client";
 
 import React, { useState, useRef } from "react";
@@ -9540,10 +9549,10 @@ export default function ReportBuilderShell() {
 
     </div>
   );
-}\n--- ./(app)/reports/components/templates/ExecutivePDF.tsx ---\n
-\n--- ./(app)/reports/components/templates/EngineeringExcel.ts ---\n
-\n--- ./(app)/reports/components/templates/GISExport.ts ---\n
-\n--- ./(app)/reports/components/ExportActionsPanel.tsx ---\n
+}\n--- ./app/(app)/reports/components/templates/ExecutivePDF.tsx ---\n
+\n--- ./app/(app)/reports/components/templates/EngineeringExcel.ts ---\n
+\n--- ./app/(app)/reports/components/templates/GISExport.ts ---\n
+\n--- ./app/(app)/reports/components/ExportActionsPanel.tsx ---\n
 "use client";
 
 import React, { useState } from "react";
@@ -9687,7 +9696,7 @@ export default function ExportActionsPanel({ activeTemplate, onTemplateChange, p
       </div>
     </div>
   );
-}\n--- ./(app)/reports/hooks/useReportData.ts ---\n
+}\n--- ./app/(app)/reports/hooks/useReportData.ts ---\n
 "use client";
 
 import { useEffect, useState } from "react";
@@ -9940,7 +9949,7 @@ export function useReportData(selectedProjectId: string | null, filters: any) {
   }, [selectedProjectId, filters?.condition, filters?.district]);
 
   return { data, loading };
-}\n--- ./(app)/reports/page.tsx ---\n
+}\n--- ./app/(app)/reports/page.tsx ---\n
 "use client";
 
 import React from "react";
@@ -9952,7 +9961,7 @@ export default function ReportsPage() {
       <ReportBuilderShell />
     </div>
   );
-}\n--- ./(app)/reports/budget/page.tsx ---\n
+}\n--- ./app/(app)/reports/budget/page.tsx ---\n
 "use client";
 
 import React from "react";
@@ -10079,7 +10088,7 @@ export default function BudgetSummaryPage() {
       </div>
     </div>
   );
-}\n--- ./layout.tsx ---\n
+}\n--- ./app/layout.tsx ---\n
 import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -10102,7 +10111,7 @@ export default function RootLayout({
       </body>
     </html>
   );
-}\n--- ./(auth)/register/page.tsx ---\n
+}\n--- ./app/(auth)/register/page.tsx ---\n
 /* --- ./app/(auth)/register/page.tsx (FULLY UPDATED - Input Fix) --- */
 "use client";
 
@@ -10419,7 +10428,7 @@ export default function RegisterPage() {
       </p>
     </div>
   );
-}\n--- ./(auth)/layout.tsx ---\n
+}\n--- ./app/(auth)/layout.tsx ---\n
 /* --- ./app/(auth)/layout.tsx (NO CHANGES) --- */
 import type { ReactNode } from "react";
 
@@ -10431,7 +10440,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
       </div>
     </div>
   );
-}\n--- ./(auth)/login/page.tsx ---\n
+}\n--- ./app/(auth)/login/page.tsx ---\n
 /* --- ./app/(auth)/login/page.tsx (FULLY UPDATED - Input Fix) --- */
 "use client";
 
@@ -10559,12 +10568,12 @@ export default function LoginPage() {
       </p>
     </div>
   );
-}\n--- ./page.tsx ---\n
+}\n--- ./app/page.tsx ---\n
 import { redirect } from "next/navigation";
 
 export default function Home() {
   redirect("/projects");
-}\n--- ./globals.css ---\n
+}\n--- ./app/globals.css ---\n
 /* --- ./app/globals.css (FINAL CORRECTED VERSION) --- */
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
@@ -10595,4 +10604,630 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}\n--- ./next-env.d.ts ---\n
+/// <reference types="next" />
+/// <reference types="next/image-types/global" />
+import "./.next/dev/types/routes.d.ts";
+
+// NOTE: This file should not be edited
+// see https://nextjs.org/docs/app/api-reference/config/typescript for more information.
+\n--- ./components/theme-provider.tsx ---\n
+"use client";
+
+import { ThemeProvider as NextThemesProvider } from "next-themes";
+import type { ReactNode } from "react";
+
+export function ThemeProvider({ children }: { children: ReactNode }) {
+  return (
+    <NextThemesProvider
+      attribute="class"
+      defaultTheme="dark"
+      enableSystem={false}
+    >
+      {children}
+    </NextThemesProvider>
+  );
+}\n--- ./components/topbar.tsx ---\n
+/* --- ./components/topbar.tsx (FULLY UPDATED - Border Fix) --- */
+"use client";
+
+import { useTheme } from "next-themes";
+import { useEffect, useState } from "react";
+import { MoonStar, Sun, Bell, Search } from "lucide-react";
+
+export function Topbar() {
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
+
+  const isDark = theme === "dark";
+  const toggleTheme = () => setTheme(isDark ? "light" : "dark");
+  
+  return (
+    <header
+      className="
+        flex items-center gap-6
+        px-8 py-3
+        // Background and shadow for floating effect
+        bg-[var(--surface-bg)]/95 backdrop-blur-md
+        shadow-lg rounded-2xl
+        // REMOVED: border-b border-slate-200/10 dark:border-slate-800/10
+      "
+    >
+      {/* App Name */}
+      <div className="flex items-center">
+        <span
+          className="
+            px-4 py-2
+            text-base font-semibold tracking-tight
+            text-[var(--foreground)]
+          "
+        >
+          Road Investment Studio
+        </span>
+      </div>
+
+      {/* Search Section (NESTED INPUT) */}
+      <div className="flex flex-1 items-center justify-center">
+        <div className="relative w-full max-w-lg">
+          <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center">
+            <Search className="h-5 w-5 text-slate-400 dark:text-slate-500" />
+          </span>
+
+          <input
+            type="text"
+            placeholder="Search projects, roads, KPIs..."
+            className="
+              w-full
+              h-11
+              pl-12 pr-4
+              rounded-2xl
+              text-sm
+              shadow-sm
+              // Input borders remain subtle
+              bg-[var(--background)] border border-slate-200/50 dark:border-slate-800/50
+              text-[var(--foreground)]
+              placeholder:text-slate-400 dark:placeholder:text-slate-500
+              focus:ring-2 focus:ring-sky-300/60 dark:focus:ring-sky-800/40
+              focus:border-sky-400
+              outline-none
+              transition-all
+            "
+          />
+        </div>
+      </div>
+
+      {/* Right Actions */}
+      <div className="flex items-center gap-4">
+        {/* Notification Button */}
+        <button
+          type="button"
+          className="
+            h-10 w-10 flex items-center justify-center
+            rounded-full
+            border border-slate-200/50 dark:border-slate-800/50
+            bg-[var(--surface-bg)] 
+            text-[var(--foreground)]
+            hover:bg-[var(--background)]
+            shadow-sm
+            transition
+          "
+        >
+          <Bell className="h-5 w-5" />
+        </button>
+
+        {/* Theme Toggle Button */}
+        {mounted && (
+          <button
+            onClick={toggleTheme}
+            className="
+              flex items-center gap-2
+              px-4 py-2
+              rounded-full
+              bg-[var(--surface-bg)]
+              border border-slate-200/50 dark:border-slate-800/50
+              text-xs font-medium
+              text-[var(--foreground)]
+              shadow-sm
+              hover:bg-[var(--background)]
+              transition
+            "
+          >
+            {isDark ?
+            (
+              <>
+                <MoonStar className="h-4 w-4" />
+                Dark mode
+              </>
+            ) : (
+              <>
+                <Sun className="h-4 w-4" />
+                Light mode
+              </>
+            )}
+          </button>
+        )}
+      </div>
+    </header>
+  );
+}\n--- ./components/nav-link.tsx ---\n
+/* --- ./components/nav-link.tsx (UPDATED - Icon Color) --- */
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { ReactNode } from "react";
+import { cn } from "@/lib/utils";
+
+interface NavLinkProps {
+  href: string;
+  icon?: ReactNode;
+  label: string;
 }
+
+export function NavLink({ href, icon, label }: NavLinkProps) {
+  const pathname = usePathname();
+  const isActive = pathname === href;
+  
+  // Define classes for icon color based on active state
+  const iconClasses = isActive
+    ? "" // Active state icon color is inherited from parent (text-white)
+    : "text-slate-500 dark:text-slate-400"; // Inactive state uses fixed slate colors
+
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
+        isActive
+          ? "bg-[var(--accent-color)] text-white shadow-sm"
+          // Inactive state uses explicit fixed colors for the specific muted look
+          : "text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-50"
+      )}
+    >
+      {icon && <span className={cn("shrink-0", iconClasses)}>{icon}</span>}
+      {label && <span className="truncate">{label}</span>}
+    </Link>
+  );
+}\n--- ./components/sidebar.tsx ---\n
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
+import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabaseClient";
+import {
+  FolderKanban,
+  Settings,
+  ChevronRight,
+  ChevronDown,
+  ChevronsLeft,
+  ChevronsRight,
+  Map,
+  LogOut,
+  Presentation,
+  Clock,
+  FileText,
+  ShieldAlert,
+  Wallet,
+  Sparkles,       
+  Briefcase,       
+  FileCheck,      
+  Layers,
+  LayoutDashboard
+} from "lucide-react";
+
+type Profile = {
+  first_name: string;
+  last_name: string;
+  username: string;
+  department: string;
+  title: string;
+};
+
+// --- 1. NAV GROUP (Accordion) ---
+function NavGroup({ 
+    label, 
+    icon, 
+    active, 
+    expanded, 
+    onToggle, 
+    children, 
+    sidebarOpen 
+}: any) {
+    if (!sidebarOpen) {
+        return (
+            <div className="relative group">
+                <button
+                    onClick={onToggle}
+                    className={cn(
+                        "flex w-full items-center justify-center p-3 rounded-xl transition-colors",
+                        active 
+                           ? "bg-[var(--accent-color)] text-white shadow-md" 
+                           : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 dark:text-slate-400"
+                    )}
+                >
+                    {icon}
+                </button>
+                <div className="absolute left-16 top-2 bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 whitespace-nowrap">
+                    {label}
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-1">
+            <button
+                onClick={onToggle}
+                className={cn(
+                    "w-full flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                    active 
+                        ? "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white" 
+                        : "text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
+                )}
+            >
+                <div className="flex items-center gap-3">
+                    {icon && <span className={cn("shrink-0", active ? "text-[var(--accent-color)]" : "")}>{icon}</span>}
+                    <span className="truncate">{label}</span>
+                </div>
+                {expanded ? <ChevronDown className="h-4 w-4 opacity-50"/> : <ChevronRight className="h-4 w-4 opacity-50"/>}
+            </button>
+            
+            {expanded && (
+                <div className="ml-4 pl-3 border-l-2 border-slate-100 dark:border-slate-800 space-y-1 mt-1 animate-in slide-in-from-left-1 duration-200">
+                    {children}
+                </div>
+            )}
+        </div>
+    );
+}
+
+// --- 2. NAV ITEM (Sub-Link) ---
+function NavItem({ href, label, icon }: any) {
+    const pathname = usePathname();
+    const isActive = pathname === href;
+    
+    return (
+        <Link 
+            href={href}
+            className={cn(
+                "flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg transition-colors",
+                isActive 
+                    ? "bg-[var(--accent-color)]/10 text-[var(--accent-color)]" 
+                    : "text-slate-500 hover:text-slate-900 dark:hover:text-slate-200"
+            )}
+        >
+            {icon && <span className="w-3 h-3 opacity-70">{icon}</span>}
+            {label}
+        </Link>
+    );
+}
+
+// --- 3. SIMPLE LINK (Single Level) ---
+function SimpleLink({ href, icon, label, active, open }: any) {
+    return (
+        <Link
+            href={href}
+            className={cn(
+                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all group relative",
+                active 
+                    ? "bg-[var(--accent-color)] text-white shadow-md shadow-indigo-500/20" 
+                    : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200",
+                !open && "justify-center"
+            )}
+        >
+            {icon}
+            {open ? (
+                <span>{label}</span>
+            ) : (
+                <div className="absolute left-14 bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-opacity">
+                    {label}
+                </div>
+            )}
+        </Link>
+    );
+}
+
+// --- MAIN COMPONENT ---
+export function Sidebar() {
+  const [open, setOpen] = useState(true);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
+  
+  const [projectsOpen, setProjectsOpen] = useState(true);
+  const [reportsOpen, setReportsOpen] = useState(true);
+  
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase.from("profiles").select("*").eq("user_id", user.id).single();
+      if (data) setProfile(data as Profile);
+    };
+    loadProfile();
+  }, []);
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    await supabase.auth.signOut();
+    router.replace("/login");
+  };
+
+  const initials = profile ? (profile.first_name[0] + profile.last_name[0]).toUpperCase() : "M";
+
+  const toggleSidebar = () => {
+      setOpen(!open);
+      if (open) { 
+          setProjectsOpen(false); 
+          setReportsOpen(false); 
+      }
+  };
+
+  return (
+    <aside
+      className={cn(
+        "flex h-full flex-col bg-[var(--sidebar-bg)] border-r border-slate-200 dark:border-slate-800 transition-all duration-300 ease-in-out z-20 shrink-0",
+        open ? "w-64" : "w-20"
+      )}
+    >
+      {/* 1. HEADER BRANDING */}
+      <div className={cn("flex items-center h-16 px-4 border-b border-slate-100 dark:border-slate-800/50", open ? "justify-between" : "justify-center")}>
+        {open ? (
+             <div className="flex items-center gap-2 font-bold text-lg tracking-tight text-slate-900 dark:text-white">
+                <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white">M</div>
+                <span>Mosianedi</span>
+             </div>
+        ) : (
+            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold">M</div>
+        )}
+      </div>
+
+      {/* 2. NAVIGATION LIST (Scrollable) */}
+      <nav className="flex-1 space-y-1 p-3 overflow-y-auto no-scrollbar">
+        
+        {/* PROJECTS GROUP */}
+        <NavGroup 
+            label="Projects" 
+            icon={<FolderKanban className="w-5 h-5"/>} 
+            active={pathname.includes("/projects")}
+            expanded={projectsOpen}
+            onToggle={() => {
+                if (!open) setOpen(true);
+                setProjectsOpen(!projectsOpen);
+            }}
+            sidebarOpen={open}
+        >
+            <NavItem 
+                href="/projects/recent" 
+                label="Recent Activity" 
+                icon={<Clock className="w-3 h-3"/>} 
+            />
+            {/* Added AI Advisor */}
+            <NavItem 
+                href="/projects/advisor" 
+                label="AI Advisor" 
+                icon={<Sparkles className="w-3 h-3 text-purple-500"/>} 
+            />
+            <NavItem 
+                href="/projects" 
+                label="All Proposals" 
+                icon={<FileText className="w-3 h-3"/>} 
+            />
+            <NavItem 
+                href="/projects/governance" 
+                label="Governance" 
+                icon={<ShieldAlert className="w-3 h-3"/>} 
+            />
+        </NavGroup>
+
+        <SimpleLink href="/dashboard" icon={<LayoutDashboard className="w-5 h-5"/>} label="Dashboard" active={pathname === "/dashboard"} open={open} />
+        
+        {/* PROVINCIAL REPORTING GROUP (Outcome Driven) */}
+        <NavGroup 
+            label="Provincial Reporting" 
+            icon={<Briefcase className="w-5 h-5"/>} 
+            active={pathname.includes("/reports")}
+            expanded={reportsOpen}
+            onToggle={() => {
+                if (!open) setOpen(true);
+                setReportsOpen(!reportsOpen);
+            }}
+            sidebarOpen={open}
+        >
+            {/* 1. Executive Case -> Treasury View Page */}
+            <NavItem href="/reports/treasury-view" label="Executive Case" icon={<Presentation className="w-3 h-3"/>} />
+            
+            {/* 2. Engineering Programme -> Budget/Schedule Page */}
+            <NavItem href="/reports/budget" label="Engineering Prog." icon={<Wallet className="w-3 h-3"/>} />
+            
+            {/* 3. GIS & Evidence -> Map Page */}
+            <NavItem href="/network" label="GIS & Evidence" icon={<Layers className="w-3 h-3"/>} />
+
+            {/* 4. Submission Builder -> Report Builder Tool */}
+            <NavItem href="/reports" label="Submission Builder" icon={<FileCheck className="w-3 h-3"/>} />
+        </NavGroup>
+
+        <SimpleLink href="/presentationmode" icon={<Presentation className="w-5 h-5"/>} label="Boardroom Mode" active={pathname === "/presentationmode"} open={open} />
+      </nav>
+
+      {/* 3. FOOTER (Profile + Toggle) */}
+      <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+          
+          <div className={cn("flex items-center gap-3 mb-4", !open && "justify-center")}>
+              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-xs font-bold text-white shadow-sm shrink-0">
+                  {initials}
+              </div>
+              
+              {open && (
+                  <div className="flex-1 overflow-hidden">
+                      <div className="truncate text-sm font-bold text-slate-700 dark:text-slate-200">
+                          {profile ? `${profile.first_name} ${profile.last_name}` : "User"}
+                      </div>
+                      <div className="truncate text-[10px] text-slate-500 uppercase font-bold tracking-wider">
+                          {profile?.department || "Admin"}
+                      </div>
+                  </div>
+              )}
+          </div>
+
+          <div className="flex gap-2">
+            <button
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className={cn(
+                    "flex-1 flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-bold transition-colors border",
+                    "border-slate-200 dark:border-slate-700 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-900/20 dark:hover:text-rose-400 text-slate-500"
+                )}
+            >
+                <LogOut className="w-3.5 h-3.5" />
+                {open && "Log Out"}
+            </button>
+            
+            <button
+                onClick={toggleSidebar}
+                className="w-9 h-9 flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
+            >
+                {open ? <ChevronsLeft className="w-4 h-4" /> : <ChevronsRight className="w-4 h-4" />}
+            </button>
+          </div>
+      </div>
+    </aside>
+  );
+}\n--- ./package.json ---\n
+{
+  "name": "mosianedi-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.4.2",
+    "@supabase/supabase-js": "^2.83.0",
+    "@types/leaflet": "^1.9.21",
+    "@types/three": "^0.181.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.0.0",
+    "leaflet": "^1.9.4",
+    "lucide-react": "^0.554.0",
+    "next": "^16.0.8",
+    "next-themes": "^0.4.6",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "react-leaflet": "^5.0.0",
+    "recharts": "^3.5.0",
+    "three": "^0.181.2"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.0.3",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
+\n--- ./lib/routes.ts ---\n
+\n--- ./lib/auth-mock.ts ---\n
+\n--- ./lib/supabaseClient.ts ---\n
+// lib/supabaseClient.ts
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+export async function getCurrentProfile() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+  
+    if (!user) return null;
+  
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("user_id", user.id)
+      .single();
+  
+    if (error) {
+      console.error("Error fetching profile", error);
+      return null;
+    }
+  
+    return data;
+  }\n--- ./lib/utils.ts ---\n
+// lib/utils.ts
+
+// Simple Tailwind-friendly classnames helper.
+// Usage: cn("base", condition && "extra")
+export function cn(
+    ...classes: Array<string | false | null | undefined>
+  ): string {
+    return classes.filter(Boolean).join(" ");
+  }\n--- ./lib/config.ts ---\n
+// lib/config.ts
+
+// 1. Get the base URL from environment or default to localhost
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+
+// 2. Helper to ensure no trailing slash problems
+// This prevents errors like "https://api.com//api/v1"
+export const API_BASE_URL = BASE_URL.endsWith("/") 
+  ? BASE_URL.slice(0, -1) 
+  : BASE_URL;\n--- ./tsconfig.json ---\n
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts"
+  ],
+  "exclude": ["node_modules"]
+}
+\n--- ./next.config.ts ---\n
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  /* config options here */
+};
+
+export default nextConfig;

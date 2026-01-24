@@ -4,95 +4,114 @@ import React, { useEffect, useState } from "react";
 import { 
   Send, 
   FileCheck, 
-  ArrowRight, 
   TrendingDown, 
-  ShieldAlert,
-  Building,
-  Check,
-  Loader2
+  ShieldAlert, 
+  Building, 
+  Check, 
+  Loader2,
+  AlertTriangle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabaseClient";
 
 // Types for our aggregated data
 type TreasuryData = {
+  projectName: string;
+  province: string;
   totalAsk: number;
-  criticalLength: number;
+  criticalLength: number; // km of poor road
   totalLength: number;
-  riskCount: number;
+  riskCount: number; // segments with IRI > 6
   maintenanceSplit: {
     rehab: number;
     reseal: number;
     routine: number;
-  }
+  };
+  generatedAt: string;
 };
 
 export default function TreasuryViewPage() {
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<TreasuryData>({
-    totalAsk: 0,
-    criticalLength: 0,
-    totalLength: 0,
-    riskCount: 0,
-    maintenanceSplit: { rehab: 0, reseal: 0, routine: 0 }
-  });
+  const [data, setData] = useState<TreasuryData | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // --- 1. FETCH & AGGREGATE REAL DATA ---
+  // --- 1. FETCH REAL DATA ---
   useEffect(() => {
     async function loadTreasuryData() {
       setLoading(true);
       
-      // A. Fetch All Projects
-      const { data: projects } = await supabase.from("projects").select("id");
-      
-      if (!projects) { setLoading(false); return; }
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+            setError("Please log in to view treasury reports.");
+            setLoading(false);
+            return;
+        }
 
-      let totalAsk = 0;
-      let totalLength = 0;
-      let riskCount = 0;
+        // A. Fetch the MOST RECENT project worked on (to show something relevant)
+        const { data: projects } = await supabase
+            .from("projects")
+            .select("id, project_name, province")
+            .order("updated_at", { ascending: false })
+            .limit(1)
+            .single();
+        
+        if (!projects) { 
+            setLoading(false); 
+            return; 
+        }
 
-      // B. Fetch Latest Simulation for each project (Simplified Logic)
-      // In a real app, you might have a dedicated 'provincial_stats' table to query directly
-      const promises = projects.map(async (p) => {
-          const { data: sim } = await supabase
+        // B. Fetch Latest Simulation for that project
+        const { data: sim } = await supabase
             .from("simulation_results")
-            .select("results_payload")
-            .eq("project_id", p.id)
+            .select("results_payload, run_at")
+            .eq("project_id", projects.id)
             .order("run_at", { ascending: false })
             .limit(1)
             .single();
-          
-          return sim?.results_payload;
-      });
+        
+        if (!sim || !sim.results_payload) {
+            setData(null); // Project exists but no simulation run yet
+            setLoading(false);
+            return;
+        }
 
-      const results = await Promise.all(promises);
+        const payload = sim.results_payload;
+        const totalAsk = payload.total_cost_npv || 0;
+        
+        // Mocking split based on typical ratios since engine aggregates total
+        // In a real advanced engine, these would be separate line items
+        const split = {
+            rehab: totalAsk * 0.45,
+            reseal: totalAsk * 0.35,
+            routine: totalAsk * 0.20
+        };
 
-      // C. Aggregate Results
-      results.forEach((res) => {
-          if (res) {
-              totalAsk += (res.total_cost_npv || 0);
-              // Mocking length/risk aggregation based on cost for demo purposes
-              // functionality depends on your specific JSON payload structure
-              totalLength += (res.yearly_data?.[0]?.avg_condition_index || 50) * 10; 
-              if ((res.total_cost_npv || 0) > 500000000) riskCount++;
-          }
-      });
+        // Get VCI from first year to estimate condition
+        const startVci = payload.yearly_data?.[0]?.avg_condition_index || 50;
+        
+        // Estimate critical length (inverse of VCI roughly)
+        const totalLen = 5000; // Default placeholder if not in sim payload (engine update might be needed to pass total km)
+        const criticalLen = totalLen * ((100 - startVci) / 100) * 0.4; // Rough heuristic
 
-      // Update State
-      setData({
-          totalAsk: totalAsk > 0 ? totalAsk : 4500000000, // Fallback to 4.5bn if DB empty
-          criticalLength: 34, // Mock %
-          totalLength: 12450, // Mock km
-          riskCount: riskCount > 0 ? riskCount : 3,
-          maintenanceSplit: {
-              rehab: totalAsk * 0.45,
-              reseal: totalAsk * 0.35,
-              routine: totalAsk * 0.20
-          }
-      });
-      
-      setLoading(false);
+        setData({
+            projectName: projects.project_name,
+            province: projects.province,
+            totalAsk: totalAsk,
+            criticalLength: criticalLen,
+            totalLength: totalLen,
+            riskCount: Math.floor(criticalLen / 5), // Assuming 5km segments
+            maintenanceSplit: split,
+            generatedAt: new Date(sim.run_at).toLocaleDateString()
+        });
+
+      } catch (err: any) {
+          console.error("Error loading treasury data:", err);
+          setError("Failed to load report data.");
+      } finally {
+          setLoading(false);
+      }
     }
     loadTreasuryData();
   }, []);
@@ -112,8 +131,23 @@ export default function TreasuryViewPage() {
   };
 
   if (loading) return (
-      <div className="h-full flex items-center justify-center">
+      <div className="h-full flex flex-col items-center justify-center p-20 text-slate-500 gap-4">
           <Loader2 className="w-8 h-8 animate-spin text-indigo-500"/>
+          <p>Compiling Executive Case...</p>
+      </div>
+  );
+
+  if (error) return (
+      <div className="p-20 text-center text-rose-500 flex flex-col items-center gap-2">
+          <AlertTriangle className="w-8 h-8" />
+          {error}
+      </div>
+  );
+
+  if (!data) return (
+      <div className="p-20 text-center text-slate-500">
+          <h2 className="text-xl font-bold mb-2">No Data Available</h2>
+          <p>Please run a simulation in the <strong>Projects</strong> tab first to generate a Treasury Case.</p>
       </div>
   );
 
@@ -127,14 +161,14 @@ export default function TreasuryViewPage() {
             <Building className="w-4 h-4" />
             NATIONAL TREASURY SUBMISSION
           </div>
-          <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">Infrastructure Grant Request</h1>
-          <p className="text-lg text-slate-500 mt-2">FY 2026/27 • Provincial Roads Maintenance Grant (PRMG)</p>
+          <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">Executive Case: {data.province}</h1>
+          <p className="text-lg text-slate-500 mt-2">PRMG Funding Request • {data.projectName}</p>
         </div>
 
         <div className="flex items-center gap-3">
             <div className="text-right hidden md:block mr-4">
-                <div className="text-xs font-bold uppercase text-slate-400">Status</div>
-                <div className="text-sm font-bold text-amber-500">Draft - Reviewing</div>
+                <div className="text-xs font-bold uppercase text-slate-400">Date Generated</div>
+                <div className="text-sm font-bold text-slate-700 dark:text-slate-300">{data.generatedAt}</div>
             </div>
             <button 
                 onClick={handleSend}
@@ -142,7 +176,7 @@ export default function TreasuryViewPage() {
                 className={cn(
                     "flex items-center gap-2 px-6 py-3 text-sm font-bold rounded-xl transition-all shadow-lg shadow-indigo-500/20",
                     sent 
-                        ? "bg-emerald-500 text-white"
+                        ? "bg-emerald-500 text-white" 
                         : "bg-indigo-600 hover:bg-indigo-700 text-white"
                 )}
             >
@@ -164,14 +198,14 @@ export default function TreasuryViewPage() {
                 
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">Executive Summary</h2>
                 <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
-                    The requested funding of <strong className="text-indigo-600">{formatCurrency(data.totalAsk)}</strong> is critical to arrest the deterioration of the secondary road network. 
-                    Without this intervention, <strong>{data.criticalLength}%</strong> of the paved network will degrade from "Fair" to "Poor" condition within 18 months, 
+                    The requested funding of <strong className="text-indigo-600">{formatCurrency(data.totalAsk)}</strong> is critical to arrest the deterioration of the {data.province} secondary road network. 
+                    Without this intervention, approximately <strong>{data.criticalLength.toFixed(0)} km</strong> of the paved network will degrade from "Fair" to "Poor" condition within 18 months, 
                     resulting in a massive liability increase in rehabilitation costs by 2028.
                 </p>
                 
                 <div className="mt-6 flex items-center gap-4 text-sm font-medium text-slate-500 bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
                     <ShieldAlert className="w-5 h-5 text-rose-500 shrink-0" />
-                    <span>Risk of structural failure on <strong>{data.riskCount} Key Routes</strong> if funding is delayed.</span>
+                    <span>Risk of structural failure on <strong>{data.riskCount} Key Segments</strong> if funding is delayed.</span>
                 </div>
             </section>
 

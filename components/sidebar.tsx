@@ -6,22 +6,25 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabaseClient";
 import {
-  LayoutDashboard,
   FolderKanban,
-  User2,
   Settings,
   ChevronRight,
   ChevronDown,
   ChevronsLeft,
   ChevronsRight,
   Map,
-  BarChart2,
   LogOut,
   Presentation,
   Clock,
   FileText,
   ShieldAlert,
-  Wallet
+  Wallet,
+  Sparkles,       
+  Briefcase,       
+  FileCheck,      
+  Layers,
+  LayoutDashboard,
+  Network
 } from "lucide-react";
 
 type Profile = {
@@ -42,12 +45,11 @@ function NavGroup({
     children, 
     sidebarOpen 
 }: any) {
-    // If sidebar is closed, we render a simple link that opens the sidebar or tooltip
     if (!sidebarOpen) {
         return (
             <div className="relative group">
                 <button
-                    onClick={onToggle} // Clicking while closed opens sidebar
+                    onClick={onToggle}
                     className={cn(
                         "flex w-full items-center justify-center p-3 rounded-xl transition-colors",
                         active 
@@ -57,7 +59,6 @@ function NavGroup({
                 >
                     {icon}
                 </button>
-                {/* Tooltip on Hover */}
                 <div className="absolute left-16 top-2 bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 whitespace-nowrap">
                     {label}
                 </div>
@@ -83,7 +84,6 @@ function NavGroup({
                 {expanded ? <ChevronDown className="h-4 w-4 opacity-50"/> : <ChevronRight className="h-4 w-4 opacity-50"/>}
             </button>
             
-            {/* Sub Menu */}
             {expanded && (
                 <div className="ml-4 pl-3 border-l-2 border-slate-100 dark:border-slate-800 space-y-1 mt-1 animate-in slide-in-from-left-1 duration-200">
                     {children}
@@ -145,14 +145,12 @@ export function Sidebar() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
   
-  // Accordion States
   const [projectsOpen, setProjectsOpen] = useState(true);
-  const [reportsOpen, setReportsOpen] = useState(false);
+  const [reportingOpen, setReportingOpen] = useState(true); // Default open to show key modules
   
   const router = useRouter();
   const pathname = usePathname();
 
-  // Load Profile
   useEffect(() => {
     const loadProfile = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -163,7 +161,6 @@ export function Sidebar() {
     loadProfile();
   }, []);
 
-  // Handle Logout
   const handleLogout = async () => {
     setLoggingOut(true);
     await supabase.auth.signOut();
@@ -172,13 +169,11 @@ export function Sidebar() {
 
   const initials = profile ? (profile.first_name[0] + profile.last_name[0]).toUpperCase() : "M";
 
-  // Toggle Function
   const toggleSidebar = () => {
       setOpen(!open);
-      // Auto-collapse groups when closing sidebar for cleaner look
       if (open) { 
           setProjectsOpen(false); 
-          setReportsOpen(false); 
+          setReportingOpen(false); 
       }
   };
 
@@ -221,6 +216,12 @@ export function Sidebar() {
                 label="Recent Activity" 
                 icon={<Clock className="w-3 h-3"/>} 
             />
+            {/* Added AI Advisor Link */}
+            <NavItem 
+                href="/projects/advisor" 
+                label="AI Advisor" 
+                icon={<Sparkles className="w-3 h-3 text-purple-500"/>} 
+            />
             <NavItem 
                 href="/projects" 
                 label="All Proposals" 
@@ -234,32 +235,38 @@ export function Sidebar() {
         </NavGroup>
 
         <SimpleLink href="/dashboard" icon={<LayoutDashboard className="w-5 h-5"/>} label="Dashboard" active={pathname === "/dashboard"} open={open} />
-        <SimpleLink href="/network" icon={<Map className="w-5 h-5"/>} label="Network Map" active={pathname === "/network"} open={open} />
         
-        {/* REPORTS GROUP */}
+        {/* PROVINCIAL REPORTING GROUP (Outcome Driven) */}
         <NavGroup 
-            label="Treasury Reports" 
-            icon={<BarChart2 className="w-5 h-5"/>} 
-            active={pathname.includes("/reports")}
-            expanded={reportsOpen}
+            label="Provincial Reporting" 
+            icon={<Briefcase className="w-5 h-5"/>} 
+            active={pathname.includes("/reports") || pathname.includes("/network")}
+            expanded={reportingOpen}
             onToggle={() => {
                 if (!open) setOpen(true);
-                setReportsOpen(!reportsOpen);
+                setReportingOpen(!reportingOpen);
             }}
             sidebarOpen={open}
         >
-            <NavItem href="/reports" label="Report Builder" icon={<Settings className="w-3 h-3"/>} />
-            <NavItem href="/reports/budget" label="Budget Summary" icon={<Wallet className="w-3 h-3"/>} />
-            {/* NEW LINK BELOW */}
-            <NavItem href="/reports/treasury-view" label="Treasury Request" icon={<Presentation className="w-3 h-3"/>} />
+            {/* 1. Executive Case -> Treasury View Page */}
+            <NavItem href="/reports/treasury-view" label="Executive Case" icon={<Presentation className="w-3 h-3"/>} />
+            
+            {/* 2. Engineering Programme -> Budget/Schedule Page */}
+            <NavItem href="/reports/budget" label="Engineering Prog." icon={<Wallet className="w-3 h-3"/>} />
+            
+            {/* 3. GIS & Evidence -> Map Page (Moved here) */}
+            <NavItem href="/network" label="GIS & Evidence" icon={<Layers className="w-3 h-3"/>} />
+
+            {/* 4. Submission Builder -> Report Builder Tool */}
+            <NavItem href="/reports" label="Submission Builder" icon={<FileCheck className="w-3 h-3"/>} />
         </NavGroup>
+
         <SimpleLink href="/presentationmode" icon={<Presentation className="w-5 h-5"/>} label="Boardroom Mode" active={pathname === "/presentationmode"} open={open} />
       </nav>
 
       {/* 3. FOOTER (Profile + Toggle) */}
       <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
           
-          {/* Profile Section */}
           <div className={cn("flex items-center gap-3 mb-4", !open && "justify-center")}>
               <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-xs font-bold text-white shadow-sm shrink-0">
                   {initials}
@@ -278,7 +285,6 @@ export function Sidebar() {
           </div>
 
           <div className="flex gap-2">
-            {/* Logout */}
             <button
                 onClick={handleLogout}
                 disabled={loggingOut}
@@ -291,7 +297,6 @@ export function Sidebar() {
                 {open && "Log Out"}
             </button>
             
-            {/* Sidebar Toggle (Moved to Footer) */}
             <button
                 onClick={toggleSidebar}
                 className="w-9 h-9 flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"

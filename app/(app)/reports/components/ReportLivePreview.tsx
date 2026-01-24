@@ -19,19 +19,13 @@ const formatMoney = (amount: number) => {
 export default function ReportLivePreview({ template, config, previewRef }: ReportLivePreviewProps) {
   const { data, loading } = useReportData(config.projectId, config);
 
-  if (!config.projectId) return <EmptyState label="Select a project from the sidebar to begin." />;
+  if (!config.projectId) return <EmptyState label="Select a project from the settings sidebar." />;
   if (loading || !data) return <LoadingState />;
 
   const { meta, summary, inputs, criticalRisks, segments, chartData } = data;
 
-  const filteredSegments = segments.filter((seg: any) => {
-    if (config.district && config.district !== "All") {
-      return (seg.district || "").toLowerCase() === config.district.toLowerCase();
-    }
-    return true;
-  });
-
-  const displaySegments = [...filteredSegments].sort((a, b) => (b.normalized_iri || 0) - (a.normalized_iri || 0));
+  // Sorting only (no more district filtering)
+  const displaySegments = [...segments].sort((a, b) => (b.normalized_iri || 0) - (a.normalized_iri || 0));
 
   return (
     <div
@@ -40,8 +34,9 @@ export default function ReportLivePreview({ template, config, previewRef }: Repo
       style={{
         backgroundColor: "#ffffff",
         color: "#0f172a",
+        boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)"
       }}
-      className="w-[210mm] min-h-[297mm] shadow-2xl mx-auto p-[15mm] origin-top text-sm font-sans"
+      className="w-[210mm] min-h-[297mm] mx-auto p-[15mm] origin-top text-sm font-sans"
     >
       {/* HEADER */}
       <header
@@ -116,7 +111,7 @@ export default function ReportLivePreview({ template, config, previewRef }: Repo
         </div>
       </div>
 
-      {/* TEMPLATE CONTENT */}
+      {/* EXECUTIVE TEMPLATE */}
       {template === "executive" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           {/* CHART */}
@@ -148,14 +143,14 @@ export default function ReportLivePreview({ template, config, previewRef }: Repo
           <div style={{ border: "1px solid #ffe4e6", borderRadius: 14, overflow: "hidden", backgroundColor: "#fff1f2" }}>
             <div style={{ padding: "12px 18px", borderBottom: "1px solid #ffe4e6", display: "flex", alignItems: "center", gap: 10, fontWeight: 900, fontSize: 11, textTransform: "uppercase", color: "#be123c" }}>
               <AlertTriangle size={16} />
-              Critical Risk Segments
+              Critical Risk Segments (Top 5)
             </div>
 
             <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse", backgroundColor: "#fff1f2" }}>
               <thead>
                 <tr style={{ color: "#9f1239" }}>
                   <th style={{ textAlign: "left", padding: "10px 18px" }}>Road ID</th>
-                  <th style={{ textAlign: "left", padding: "10px 18px" }}>Location</th>
+                  <th style={{ textAlign: "left", padding: "10px 18px" }}>Surface</th>
                   <th style={{ textAlign: "right", padding: "10px 18px" }}>Roughness (IRI)</th>
                   <th style={{ textAlign: "right", padding: "10px 18px" }}>Remedial Cost</th>
                 </tr>
@@ -164,7 +159,7 @@ export default function ReportLivePreview({ template, config, previewRef }: Repo
                 {criticalRisks.map((road: any, i: number) => (
                   <tr key={i} style={{ borderTop: "1px solid #fecdd3" }}>
                     <td style={{ padding: "12px 18px", fontWeight: 900, color: "#881337" }}>{road.normalized_id}</td>
-                    <td style={{ padding: "12px 18px", color: "#9f1239" }}>{road.district || "Unknown"}</td>
+                    <td style={{ padding: "12px 18px", color: "#9f1239", textTransform: "capitalize" }}>{road.surface || "Paved"}</td>
                     <td style={{ padding: "12px 18px", textAlign: "right", fontFamily: "monospace", fontWeight: 900, color: "#e11d48" }}>
                       {Number(road.normalized_iri || 0).toFixed(2)}
                     </td>
@@ -179,14 +174,12 @@ export default function ReportLivePreview({ template, config, previewRef }: Repo
         </div>
       )}
 
+      {/* ENGINEERING TEMPLATE */}
       {template === "engineering" && (
         <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ borderBottom: "2px solid #0f172a" }}>
               <th style={{ padding: "10px 0", textTransform: "uppercase", fontWeight: 900, textAlign: "left" }}>ID</th>
-              {config.showDistrict && (
-                <th style={{ padding: "10px 0", textTransform: "uppercase", fontWeight: 900, textAlign: "left" }}>District</th>
-              )}
               <th style={{ padding: "10px 0", textTransform: "uppercase", fontWeight: 900, textAlign: "right" }}>Length</th>
               {config.showSurface && (
                 <th style={{ padding: "10px 0", textTransform: "uppercase", fontWeight: 900, textAlign: "left" }}>Type</th>
@@ -208,9 +201,8 @@ export default function ReportLivePreview({ template, config, previewRef }: Repo
               return (
                 <tr key={i} style={{ backgroundColor: i % 2 === 0 ? "#f8fafc" : "#ffffff", borderTop: "1px solid #e5e7eb" }}>
                   <td style={{ padding: "10px 0", fontFamily: "monospace", fontWeight: 900, color: "#334155" }}>{seg.normalized_id}</td>
-                  {config.showDistrict && <td style={{ padding: "10px 0", color: "#475569" }}>{seg.district || ""}</td>}
                   <td style={{ padding: "10px 0", textAlign: "right", color: "#475569" }}>{Number(seg.normalized_length || 0).toFixed(2)}</td>
-                  {config.showSurface && <td style={{ padding: "10px 0", textTransform: "capitalize", color: "#475569" }}>{seg.surface || seg.surface_type || ""}</td>}
+                  {config.showSurface && <td style={{ padding: "10px 0", textTransform: "capitalize", color: "#475569" }}>{seg.surface || seg.surface_type || "Paved"}</td>}
                   <td style={{ padding: "10px 0", textAlign: "center", fontWeight: 900, color: danger ? "#e11d48" : "#475569" }}>
                     {iri.toFixed(1)}
                   </td>
@@ -223,6 +215,7 @@ export default function ReportLivePreview({ template, config, previewRef }: Repo
         </table>
       )}
 
+      {/* GIS TEMPLATE */}
       {template === "gis" && (
         <div style={{ height: 400, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#94a3b8" }}>
           <Map size={64} color="#c7d2fe" />
