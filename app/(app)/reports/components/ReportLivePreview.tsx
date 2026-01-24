@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Loader2, AlertTriangle, TrendingUp, Settings2, Map } from "lucide-react";
+import { Loader2, AlertTriangle, TrendingUp, Settings2 } from "lucide-react";
 import { useReportData } from "../hooks/useReportData";
 
 interface ReportLivePreviewProps {
@@ -22,10 +22,10 @@ export default function ReportLivePreview({ template, config, previewRef }: Repo
   if (!config.projectId) return <EmptyState label="Select a project from the settings sidebar." />;
   if (loading || !data) return <LoadingState />;
 
-  const { meta, summary, inputs, criticalRisks, segments, chartData } = data;
+  const { meta, summary, narrative, criticalRisks, segments, chartData } = data;
 
-  // Sorting only (no more district filtering)
-  const displaySegments = [...segments].sort((a, b) => (b.normalized_iri || 0) - (a.normalized_iri || 0));
+  // Sorting for display
+  const displaySegments = [...segments].sort((a, b) => b.iri - a.iri);
 
   return (
     <div
@@ -72,7 +72,8 @@ export default function ReportLivePreview({ template, config, previewRef }: Repo
       {/* SUMMARY STATS */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
         <StatBox label="Network Size" value={`${summary.totalLength.toFixed(0)} km`} />
-        <StatBox label="Avg Condition" value={`VCI ${summary.avgCondition.toFixed(0)}`} />
+        {/* FIX: Used currentVci instead of avgCondition */}
+        <StatBox label="Current VCI" value={`${summary.currentVci.toFixed(0)} / 100`} />
         <StatBox label="Asset Value" value={formatMoney(summary.assetValue)} />
         {config.showCost && (
           <div style={{ backgroundColor: "#eef2ff", border: "1px solid #c7d2fe", borderRadius: 10, padding: 12 }}>
@@ -84,50 +85,58 @@ export default function ReportLivePreview({ template, config, previewRef }: Repo
         )}
       </div>
 
-      {/* INPUTS */}
-      <div style={{ backgroundColor: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 14, padding: 14, marginBottom: 24 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, color: "#94a3b8", fontSize: 11, fontWeight: 900, textTransform: "uppercase" }}>
-          <Settings2 size={14} />
-          Simulation Parameters
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, fontSize: 12, color: "#334155" }}>
-          <div>
-            <div style={{ color: "#94a3b8", fontSize: 11 }}>Strategy</div>
-            <div style={{ fontWeight: 800, textTransform: "capitalize" }}>{inputs.strategy || "Standard"}</div>
-          </div>
-          <div>
-            <div style={{ color: "#94a3b8", fontSize: 11 }}>Start Year</div>
-            <div style={{ fontWeight: 800 }}>{inputs.startYear}</div>
-          </div>
-          <div>
-            <div style={{ color: "#94a3b8", fontSize: 11 }}>Inflation</div>
-            <div style={{ fontWeight: 800 }}>{Number(inputs.inflation).toFixed(1)}%</div>
-          </div>
-          <div>
-            <div style={{ color: "#94a3b8", fontSize: 11 }}>Budget Cap</div>
-            <div style={{ fontWeight: 800 }}>{inputs.budgetCap > 0 ? formatMoney(inputs.budgetCap) : "Unconstrained"}</div>
-          </div>
-        </div>
-      </div>
-
       {/* EXECUTIVE TEMPLATE */}
       {template === "executive" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-          {/* CHART */}
+          
+          {/* AI NARRATIVE BOX */}
+          <div style={{ padding: 18, backgroundColor: "#f8fafc", borderLeft: "4px solid #4f46e5", borderRadius: 4 }}>
+             <h3 style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", color: "#64748b", marginBottom: 8 }}>Strategic Outlook</h3>
+             <p style={{ fontSize: 13, lineHeight: 1.5, color: "#334155" }}>
+                {narrative.executiveSummary}
+             </p>
+          </div>
+
+          {/* CHART: The Scissors Graph */}
           <div style={{ border: "1px solid #e2e8f0", borderRadius: 14, padding: 18, height: 288 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.14em", color: "#94a3b8" }}>
                 <TrendingUp size={16} />
-                Condition Forecast (10 Years)
+                Scenario Comparison (10 Years)
+              </div>
+              <div style={{ display: "flex", gap: 16, fontSize: 10, fontWeight: 600 }}>
+                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <div style={{ width: 8, height: 8, backgroundColor: "#6366f1", borderRadius: 2 }} /> Funded
+                 </div>
+                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <div style={{ width: 8, height: 8, backgroundColor: "#fecdd3", borderRadius: 2 }} /> Do Nothing
+                 </div>
               </div>
             </div>
 
             <div style={{ display: "flex", alignItems: "flex-end", height: 190, gap: 8, borderLeft: "1px solid #f1f5f9", borderBottom: "1px solid #f1f5f9", paddingLeft: 10, paddingBottom: 10 }}>
               {chartData.length > 0 ? (
                 chartData.map((d: any, i: number) => (
-                  <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
-                    <div style={{ width: "100%", height: `${d.avg_condition_index}%`, backgroundColor: "#6366f1", borderTopLeftRadius: 2, borderTopRightRadius: 2 }} />
+                  <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-end", position: "relative" }}>
+                    {/* Do Nothing Bar (Ghost) */}
+                    <div style={{ 
+                        position: "absolute", bottom: 0, left: 4, right: 4, 
+                        height: `${d.doNothingVCI}%`, 
+                        backgroundColor: "#fecdd3", 
+                        zIndex: 0 
+                    }} />
+                    
+                    {/* Funded Bar */}
+                    <div style={{ 
+                        width: "100%", 
+                        height: `${d.fundedVCI}%`, 
+                        backgroundColor: "#6366f1", 
+                        borderTopLeftRadius: 4, 
+                        borderTopRightRadius: 4,
+                        opacity: 0.9,
+                        zIndex: 1
+                    }} />
+                    
                     <div style={{ fontSize: 10, color: "#94a3b8", textAlign: "center", marginTop: 8 }}>{d.year}</div>
                   </div>
                 ))
@@ -158,13 +167,13 @@ export default function ReportLivePreview({ template, config, previewRef }: Repo
               <tbody>
                 {criticalRisks.map((road: any, i: number) => (
                   <tr key={i} style={{ borderTop: "1px solid #fecdd3" }}>
-                    <td style={{ padding: "12px 18px", fontWeight: 900, color: "#881337" }}>{road.normalized_id}</td>
-                    <td style={{ padding: "12px 18px", color: "#9f1239", textTransform: "capitalize" }}>{road.surface || "Paved"}</td>
+                    <td style={{ padding: "12px 18px", fontWeight: 900, color: "#881337" }}>{road.road_id}</td>
+                    <td style={{ padding: "12px 18px", color: "#9f1239", textTransform: "capitalize" }}>{road.surface}</td>
                     <td style={{ padding: "12px 18px", textAlign: "right", fontFamily: "monospace", fontWeight: 900, color: "#e11d48" }}>
-                      {Number(road.normalized_iri || 0).toFixed(2)}
+                      {Number(road.iri || 0).toFixed(2)}
                     </td>
                     <td style={{ padding: "12px 18px", textAlign: "right", color: "#9f1239" }}>
-                      {formatMoney((road.normalized_length || 0) * 2_500_000)}
+                      {formatMoney((road.length || 0) * 2_500_000)}
                     </td>
                   </tr>
                 ))}
@@ -179,30 +188,30 @@ export default function ReportLivePreview({ template, config, previewRef }: Repo
         <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ borderBottom: "2px solid #0f172a" }}>
-              <th style={{ padding: "10px 0", textTransform: "uppercase", fontWeight: 900, textAlign: "left" }}>ID</th>
-              <th style={{ padding: "10px 0", textTransform: "uppercase", fontWeight: 900, textAlign: "right" }}>Length</th>
+              <th style={{ padding: "10px 0", textTransform: "uppercase", fontWeight: 900, textAlign: "left" }}>Road ID</th>
+              <th style={{ padding: "10px 0", textTransform: "uppercase", fontWeight: 900, textAlign: "right" }}>Length (km)</th>
               {config.showSurface && (
                 <th style={{ padding: "10px 0", textTransform: "uppercase", fontWeight: 900, textAlign: "left" }}>Type</th>
               )}
               <th style={{ padding: "10px 0", textTransform: "uppercase", fontWeight: 900, textAlign: "center" }}>IRI</th>
-              <th style={{ padding: "10px 0", textTransform: "uppercase", fontWeight: 900, textAlign: "left" }}>Treatment</th>
+              <th style={{ padding: "10px 0", textTransform: "uppercase", fontWeight: 900, textAlign: "left" }}>Action</th>
               {config.showCost && (
-                <th style={{ padding: "10px 0", textTransform: "uppercase", fontWeight: 900, textAlign: "right" }}>Cost</th>
+                <th style={{ padding: "10px 0", textTransform: "uppercase", fontWeight: 900, textAlign: "right" }}>Est. Cost</th>
               )}
             </tr>
           </thead>
 
           <tbody>
             {displaySegments.slice(0, 45).map((seg: any, i: number) => {
-              const iri = Number(seg.normalized_iri || 0);
-              const cost = (Number(seg.normalized_length || 1) || 1) * (iri > 5 ? 3_500_000 : 500_000);
+              const iri = Number(seg.iri || 0);
+              const cost = (Number(seg.length || 1) || 1) * (iri > 5 ? 3_500_000 : 500_000);
               const danger = iri > 5;
 
               return (
                 <tr key={i} style={{ backgroundColor: i % 2 === 0 ? "#f8fafc" : "#ffffff", borderTop: "1px solid #e5e7eb" }}>
-                  <td style={{ padding: "10px 0", fontFamily: "monospace", fontWeight: 900, color: "#334155" }}>{seg.normalized_id}</td>
-                  <td style={{ padding: "10px 0", textAlign: "right", color: "#475569" }}>{Number(seg.normalized_length || 0).toFixed(2)}</td>
-                  {config.showSurface && <td style={{ padding: "10px 0", textTransform: "capitalize", color: "#475569" }}>{seg.surface || seg.surface_type || "Paved"}</td>}
+                  <td style={{ padding: "10px 0", fontFamily: "monospace", fontWeight: 900, color: "#334155" }}>{seg.road_id}</td>
+                  <td style={{ padding: "10px 0", textAlign: "right", color: "#475569" }}>{Number(seg.length || 0).toFixed(2)}</td>
+                  {config.showSurface && <td style={{ padding: "10px 0", textTransform: "capitalize", color: "#475569" }}>{seg.surface}</td>}
                   <td style={{ padding: "10px 0", textAlign: "center", fontWeight: 900, color: danger ? "#e11d48" : "#475569" }}>
                     {iri.toFixed(1)}
                   </td>
@@ -214,11 +223,10 @@ export default function ReportLivePreview({ template, config, previewRef }: Repo
           </tbody>
         </table>
       )}
-
-      {/* GIS TEMPLATE */}
+      
+       {/* GIS TEMPLATE */}
       {template === "gis" && (
         <div style={{ height: 400, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#94a3b8" }}>
-          <Map size={64} color="#c7d2fe" />
           <div style={{ marginTop: 14, fontSize: 18, fontWeight: 900, color: "#334155" }}>Ready to Export</div>
           <div style={{ marginTop: 6, fontSize: 13 }}>
             Package contains <span style={{ color: "#4f46e5", fontWeight: 900 }}>{displaySegments.length}</span> spatial features.

@@ -2,11 +2,9 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-// Ensure this path matches your actual config file, or use process.env.NEXT_PUBLIC_API_URL
 import { API_BASE_URL } from "@/lib/config"; 
 import { SimulationOutput } from "../types";
 
-// 👇 Define the shape of the options we expect from the UI
 export type SimulationOptions = {
   startYearOverride?: number | null;
   includePaved: boolean;
@@ -27,11 +25,11 @@ export function useSimulationRun(projectId: string) {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
 
-      // 👇 IMPORTANT: Map Frontend (camelCase) to Backend (snake_case)
+      // 👇 FIX: Match Backend Pydantic Schema exactly
       const payload = {
-        start_year: options.startYearOverride,
-        scope_paved: options.includePaved,
-        scope_gravel: options.includeGravel
+        startYearOverride: options.startYearOverride, // Backend expects snake_case alias or this camelCase
+        includePaved: options.includePaved,            
+        includeGravel: options.includeGravel           
       };
 
       const res = await fetch(
@@ -42,7 +40,7 @@ export function useSimulationRun(projectId: string) {
             "Content-Type": "application/json",
             Authorization: `Bearer ${session.access_token}` 
           },
-          body: JSON.stringify(payload), // Send the mapped payload
+          body: JSON.stringify(payload),
         }
       );
 
@@ -51,8 +49,9 @@ export function useSimulationRun(projectId: string) {
         throw new Error(body.detail || "Simulation run failed.");
       }
 
-      const data: SimulationOutput = await res.json();
-      setResult(data);
+      // 👇 FIX: Unwrap the 'results_payload' from the history wrapper
+      const wrapper = await res.json();
+      setResult(wrapper.results_payload || null);
       
     } catch (err: any) {
       console.error("Simulation error:", err);

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { FileText, LayoutTemplate, Download, Loader2, Printer } from "lucide-react";
+import { FileText, LayoutTemplate, Download, Loader2 } from "lucide-react";
 import ReportFilterSidebar from "./ReportFilterSidebar";
 import ReportLivePreview from "./ReportLivePreview";
 import html2canvas from "html2canvas";
@@ -18,7 +18,6 @@ export default function ReportBuilderShell() {
     projectId: "",
     title: "Provincial Maintenance Report",
     condition: "all",
-    // district: "All", // REMOVED
     showSurface: true,
     showCost: true,
     groupBy: "none",
@@ -28,20 +27,18 @@ export default function ReportBuilderShell() {
     setReportConfig(prev => ({ ...prev, [key]: value }));
   };
 
-  // --- PDF GENERATION LOGIC (Moved here) ---
+  // --- PDF GENERATION LOGIC ---
   const handleDownload = async () => {
     if (!previewRef.current) return;
     setDownloading(true);
 
     try {
-      // 1. Capture the DIV as a canvas
       const canvas = await html2canvas(previewRef.current, {
-        scale: 2, // High res
+        scale: 2, 
         useCORS: true,
         logging: false,
         backgroundColor: "#ffffff",
         onclone: (clonedDoc) => {
-            // Fix Tailwind variables / CSS vars not capturing correctly in some browsers
             const root = clonedDoc.getElementById("report-print-root");
             if (root) {
                 root.style.backgroundColor = "#ffffff";
@@ -51,8 +48,6 @@ export default function ReportBuilderShell() {
       });
 
       const imgData = canvas.toDataURL("image/png");
-
-      // 2. Generate PDF
       const pdf = new jsPDF("p", "mm", "a4");
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;

@@ -6,10 +6,14 @@ import { useRouter } from "next/navigation";
 import { useSimulationRun } from "../hooks/useSimulationRun";
 import { useProjectMeta } from "../hooks/useProjectMeta";
 
-function fmtCurrency(val: number) {
-  if (val >= 1_000_000_000) return `R ${(val / 1_000_000_000).toFixed(1)} bn`;
-  if (val >= 1_000_000) return `R ${(val / 1_000_000).toFixed(1)} m`;
-  return `R ${val.toLocaleString()}`;
+// --- FIX: Robust formatting function ---
+function fmtCurrency(val: any) {
+  const v = Number(val);
+  if (!Number.isFinite(v)) return "R 0"; // Safety check for null/undefined/NaN
+
+  if (v >= 1_000_000_000) return `R ${(v / 1_000_000_000).toFixed(1)} bn`;
+  if (v >= 1_000_000) return `R ${(v / 1_000_000).toFixed(1)} m`;
+  return `R ${v.toLocaleString()}`;
 }
 
 export function RunSimulationCard({ projectId }: { projectId: string }) {
@@ -156,13 +160,14 @@ export function RunSimulationCard({ projectId }: { projectId: string }) {
                 <div>
                   <div className="text-[10px] uppercase text-slate-400 font-bold tracking-wider mb-1">Total Ask</div>
                   <div className="text-xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
-                    {fmtCurrency(result.total_cost_npv)}
+                    {/* FIX: Add fallback and use safe formatter */}
+                    {fmtCurrency(result.total_cost_npv || 0)}
                   </div>
                 </div>
                 <div>
                   <div className="text-[10px] uppercase text-slate-400 font-bold tracking-wider mb-1">Target VCI</div>
                   <div className="text-xl font-black text-slate-900 dark:text-slate-100 flex items-center gap-1 tracking-tight">
-                    {result.final_network_condition.toFixed(1)}
+                    {(result.final_network_condition || 0).toFixed(1)}
                     <TrendingUp className={`w-4 h-4 ${result.final_network_condition < 50 ? 'text-rose-500' : 'text-emerald-500'}`} />
                   </div>
                 </div>
