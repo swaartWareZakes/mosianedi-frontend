@@ -1,11 +1,10 @@
 "use client";
 
 import React from "react";
-import { Loader2, AlertTriangle, TrendingUp, Settings2 } from "lucide-react";
+import { Loader2, TrendingUp, AlertTriangle, Building2, Coins, ArrowUpRight, Calendar, BrainCircuit } from "lucide-react";
 import { useReportData } from "../hooks/useReportData";
 
 interface ReportLivePreviewProps {
-  template: string;
   config: any;
   previewRef?: React.RefObject<HTMLDivElement | null>;
 }
@@ -16,16 +15,13 @@ const formatMoney = (amount: number) => {
   return `R ${(amount / 1_000_000).toFixed(1)}m`;
 };
 
-export default function ReportLivePreview({ template, config, previewRef }: ReportLivePreviewProps) {
+export default function ReportLivePreview({ config, previewRef }: ReportLivePreviewProps) {
   const { data, loading } = useReportData(config.projectId, config);
 
   if (!config.projectId) return <EmptyState label="Select a project from the settings sidebar." />;
   if (loading || !data) return <LoadingState />;
 
-  const { meta, summary, narrative, criticalRisks, segments, chartData } = data;
-
-  // Sorting for display
-  const displaySegments = [...segments].sort((a, b) => b.iri - a.iri);
+  const { meta, summary, narrative, chartData } = data;
 
   return (
     <div
@@ -36,213 +32,171 @@ export default function ReportLivePreview({ template, config, previewRef }: Repo
         color: "#0f172a",
         boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)"
       }}
-      className="w-[210mm] min-h-[297mm] mx-auto p-[15mm] origin-top text-sm font-sans"
+      className="w-[210mm] min-h-[297mm] mx-auto p-[15mm] flex flex-col gap-8 origin-top text-sm font-sans"
     >
-      {/* HEADER */}
-      <header
-        style={{
-          borderBottom: "2px solid #0f172a",
-          paddingBottom: 16,
-          marginBottom: 28,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-end",
-        }}
-      >
+      {/* ROW 1: HEADER (The Hook) */}
+      <header className="border-b-4 border-indigo-600 pb-6 flex justify-between items-end">
         <div>
-          <h1 style={{ fontSize: 30, fontWeight: 900, letterSpacing: "-0.02em", margin: 0 }}>
-            {String(config.title || "").toUpperCase()}
-          </h1>
-
-          <div style={{ display: "flex", gap: 10, marginTop: 8, fontSize: 11, color: "#64748b", fontFamily: "monospace" }}>
-            <span>{meta.generatedDate}</span>
-            <span>•</span>
-            <span style={{ textTransform: "uppercase" }}>{meta.projectName}</span>
-          </div>
+            <div className="text-indigo-600 font-extrabold text-xs uppercase tracking-[0.2em] mb-2">Strategic Infrastructure Submission</div>
+            <h1 className="text-4xl font-black text-slate-900 leading-tight mb-2">{config.title || "Business Case"}</h1>
+            <div className="flex items-center gap-3 text-slate-500 font-medium">
+                <span>{meta.province}</span>
+                <span className="w-1 h-1 bg-slate-300 rounded-full"/>
+                <span>{meta.projectName}</span>
+                <span className="w-1 h-1 bg-slate-300 rounded-full"/>
+                <span>{meta.generatedDate}</span>
+            </div>
         </div>
-
-        <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.18em", textTransform: "uppercase", color: "#94a3b8" }}>
-            Province
-          </div>
-          <div style={{ fontWeight: 800, fontSize: 20, color: "#4f46e5" }}>{meta.province}</div>
+        <div className="text-right">
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Funding Requirement</div>
+            <div className="text-3xl font-black text-indigo-600">{formatMoney(summary.budgetAsk)}</div>
+            <div className="text-xs font-bold text-slate-400 uppercase mt-1">5 Year Horizon</div>
         </div>
       </header>
 
-      {/* SUMMARY STATS */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
-        <StatBox label="Network Size" value={`${summary.totalLength.toFixed(0)} km`} />
-        {/* FIX: Used currentVci instead of avgCondition */}
-        <StatBox label="Current VCI" value={`${summary.currentVci.toFixed(0)} / 100`} />
-        <StatBox label="Asset Value" value={formatMoney(summary.assetValue)} />
-        {config.showCost && (
-          <div style={{ backgroundColor: "#eef2ff", border: "1px solid #c7d2fe", borderRadius: 10, padding: 12 }}>
-            <div style={{ fontSize: 10, textTransform: "uppercase", fontWeight: 900, color: "#4f46e5", marginBottom: 6 }}>
-              Total Ask
-            </div>
-            <div style={{ fontSize: 18, fontWeight: 900, color: "#1e1b4b" }}>{formatMoney(summary.budgetAsk)}</div>
-          </div>
-        )}
+      {/* ROW 2: ASSET BASELINE (The Context) */}
+      <div className="grid grid-cols-3 gap-6">
+         <MetricCard 
+            icon={<Building2 className="w-5 h-5 text-slate-400"/>} 
+            label="Total Network Asset"
+            value={formatMoney(summary.assetValue)}
+            sub="Current Replacement Cost"
+         />
+         <MetricCard 
+            icon={<TrendingUp className="w-5 h-5 text-slate-400"/>} 
+            label="Current Health"
+            value={`VCI ${summary.currentVci.toFixed(0)}`}
+            sub="Weighted Average Condition"
+            color={summary.currentVci < 50 ? "text-rose-600" : "text-emerald-600"}
+         />
+         <MetricCard 
+            icon={<Coins className="w-5 h-5 text-slate-400"/>} 
+            label="Investment Ratio"
+            value={`${summary.preservationRatio.toFixed(1)}%`}
+            sub="Of Asset Value (Target: 2%)"
+         />
       </div>
 
-      {/* EXECUTIVE TEMPLATE */}
-      {template === "executive" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-          
-          {/* AI NARRATIVE BOX */}
-          <div style={{ padding: 18, backgroundColor: "#f8fafc", borderLeft: "4px solid #4f46e5", borderRadius: 4 }}>
-             <h3 style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", color: "#64748b", marginBottom: 8 }}>Strategic Outlook</h3>
-             <p style={{ fontSize: 13, lineHeight: 1.5, color: "#334155" }}>
-                {narrative.executiveSummary}
-             </p>
-          </div>
-
-          {/* CHART: The Scissors Graph */}
-          <div style={{ border: "1px solid #e2e8f0", borderRadius: 14, padding: 18, height: 288 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.14em", color: "#94a3b8" }}>
-                <TrendingUp size={16} />
-                Scenario Comparison (10 Years)
-              </div>
-              <div style={{ display: "flex", gap: 16, fontSize: 10, fontWeight: 600 }}>
-                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    <div style={{ width: 8, height: 8, backgroundColor: "#6366f1", borderRadius: 2 }} /> Funded
-                 </div>
-                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    <div style={{ width: 8, height: 8, backgroundColor: "#fecdd3", borderRadius: 2 }} /> Do Nothing
-                 </div>
-              </div>
+      {/* ROW 3: THE SCISSORS GRAPH (The Why) */}
+      <div className="bg-slate-50 border border-slate-100 rounded-xl p-6">
+         <div className="flex justify-between items-center mb-6">
+            <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-500"/>
+                Impact Analysis: Funding vs. Decay
+            </h3>
+            <div className="flex gap-4 text-[10px] font-bold uppercase tracking-wider">
+                <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-indigo-600"/> Funded Intervention</div>
+                <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-rose-400"/> Do Nothing (Decay)</div>
             </div>
+         </div>
+         
+         <div className="h-48 flex items-end gap-3 px-2">
+            {chartData.map((d, i) => (
+                <div key={i} className="flex-1 flex flex-col justify-end relative h-full group">
+                    {/* Tooltip on hover */}
+                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] p-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                        Year {d.year}: VCI {d.fundedVCI.toFixed(0)} vs {d.doNothingVCI.toFixed(0)}
+                    </div>
 
-            <div style={{ display: "flex", alignItems: "flex-end", height: 190, gap: 8, borderLeft: "1px solid #f1f5f9", borderBottom: "1px solid #f1f5f9", paddingLeft: 10, paddingBottom: 10 }}>
-              {chartData.length > 0 ? (
-                chartData.map((d: any, i: number) => (
-                  <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-end", position: "relative" }}>
-                    {/* Do Nothing Bar (Ghost) */}
-                    <div style={{ 
-                        position: "absolute", bottom: 0, left: 4, right: 4, 
-                        height: `${d.doNothingVCI}%`, 
-                        backgroundColor: "#fecdd3", 
-                        zIndex: 0 
-                    }} />
+                    {/* Bars */}
+                    <div className="w-full bg-rose-200 rounded-t-sm relative" style={{ height: `${d.doNothingVCI}%` }}>
+                        <div className="absolute inset-0 bg-rose-400 opacity-20"/>
+                    </div>
+                    <div className="w-full bg-indigo-600 rounded-t-sm absolute bottom-0 left-0 right-0 shadow-lg" style={{ height: `${d.fundedVCI}%` }}/>
                     
-                    {/* Funded Bar */}
-                    <div style={{ 
-                        width: "100%", 
-                        height: `${d.fundedVCI}%`, 
-                        backgroundColor: "#6366f1", 
-                        borderTopLeftRadius: 4, 
-                        borderTopRightRadius: 4,
-                        opacity: 0.9,
-                        zIndex: 1
-                    }} />
-                    
-                    <div style={{ fontSize: 10, color: "#94a3b8", textAlign: "center", marginTop: 8 }}>{d.year}</div>
-                  </div>
-                ))
-              ) : (
-                <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "#cbd5e1", fontStyle: "italic" }}>
-                  Run simulation to generate forecast graph.
+                    <div className="text-[10px] text-slate-400 text-center mt-2 font-mono">{d.year}</div>
                 </div>
-              )}
-            </div>
-          </div>
+            ))}
+         </div>
+      </div>
 
-          {/* RISKS */}
-          <div style={{ border: "1px solid #ffe4e6", borderRadius: 14, overflow: "hidden", backgroundColor: "#fff1f2" }}>
-            <div style={{ padding: "12px 18px", borderBottom: "1px solid #ffe4e6", display: "flex", alignItems: "center", gap: 10, fontWeight: 900, fontSize: 11, textTransform: "uppercase", color: "#be123c" }}>
-              <AlertTriangle size={16} />
-              Critical Risk Segments (Top 5)
-            </div>
-
-            <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse", backgroundColor: "#fff1f2" }}>
-              <thead>
-                <tr style={{ color: "#9f1239" }}>
-                  <th style={{ textAlign: "left", padding: "10px 18px" }}>Road ID</th>
-                  <th style={{ textAlign: "left", padding: "10px 18px" }}>Surface</th>
-                  <th style={{ textAlign: "right", padding: "10px 18px" }}>Roughness (IRI)</th>
-                  <th style={{ textAlign: "right", padding: "10px 18px" }}>Remedial Cost</th>
-                </tr>
-              </thead>
-              <tbody>
-                {criticalRisks.map((road: any, i: number) => (
-                  <tr key={i} style={{ borderTop: "1px solid #fecdd3" }}>
-                    <td style={{ padding: "12px 18px", fontWeight: 900, color: "#881337" }}>{road.road_id}</td>
-                    <td style={{ padding: "12px 18px", color: "#9f1239", textTransform: "capitalize" }}>{road.surface}</td>
-                    <td style={{ padding: "12px 18px", textAlign: "right", fontFamily: "monospace", fontWeight: 900, color: "#e11d48" }}>
-                      {Number(road.iri || 0).toFixed(2)}
-                    </td>
-                    <td style={{ padding: "12px 18px", textAlign: "right", color: "#9f1239" }}>
-                      {formatMoney((road.length || 0) * 2_500_000)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* ROW 4: STRATEGIC JUSTIFICATION (The Argument) */}
+      {config.showAiNarrative && (
+          <div className="flex gap-6">
+             <div className="w-1/3">
+                <div className="bg-indigo-600 text-white p-6 rounded-xl h-full flex flex-col justify-between">
+                    <BrainCircuit className="w-8 h-8 opacity-50 mb-4"/>
+                    <div>
+                        <div className="text-indigo-200 text-xs font-bold uppercase tracking-wider mb-2">Strategic Driver</div>
+                        <div className="text-xl font-bold leading-snug">
+                            "{narrative.executiveSummary.split('.')[0]}."
+                        </div>
+                    </div>
+                </div>
+             </div>
+             <div className="w-2/3 space-y-4 text-sm leading-relaxed text-slate-600">
+                <h3 className="font-bold text-slate-900 border-b pb-2 mb-2">Treasury Motivation</h3>
+                <p>{narrative.executiveSummary}</p>
+                <div className="p-4 bg-rose-50 border border-rose-100 rounded-lg text-rose-800 text-xs font-medium flex gap-3">
+                    <AlertTriangle className="w-4 h-4 shrink-0"/>
+                    <div>
+                        <strong className="block text-rose-900 mb-1">Fiscal Liability Warning:</strong>
+                        {narrative.riskStatement}
+                    </div>
+                </div>
+             </div>
           </div>
-        </div>
       )}
 
-      {/* ENGINEERING TEMPLATE */}
-      {template === "engineering" && (
-        <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ borderBottom: "2px solid #0f172a" }}>
-              <th style={{ padding: "10px 0", textTransform: "uppercase", fontWeight: 900, textAlign: "left" }}>Road ID</th>
-              <th style={{ padding: "10px 0", textTransform: "uppercase", fontWeight: 900, textAlign: "right" }}>Length (km)</th>
-              {config.showSurface && (
-                <th style={{ padding: "10px 0", textTransform: "uppercase", fontWeight: 900, textAlign: "left" }}>Type</th>
-              )}
-              <th style={{ padding: "10px 0", textTransform: "uppercase", fontWeight: 900, textAlign: "center" }}>IRI</th>
-              <th style={{ padding: "10px 0", textTransform: "uppercase", fontWeight: 900, textAlign: "left" }}>Action</th>
-              {config.showCost && (
-                <th style={{ padding: "10px 0", textTransform: "uppercase", fontWeight: 900, textAlign: "right" }}>Est. Cost</th>
-              )}
-            </tr>
-          </thead>
-
-          <tbody>
-            {displaySegments.slice(0, 45).map((seg: any, i: number) => {
-              const iri = Number(seg.iri || 0);
-              const cost = (Number(seg.length || 1) || 1) * (iri > 5 ? 3_500_000 : 500_000);
-              const danger = iri > 5;
-
-              return (
-                <tr key={i} style={{ backgroundColor: i % 2 === 0 ? "#f8fafc" : "#ffffff", borderTop: "1px solid #e5e7eb" }}>
-                  <td style={{ padding: "10px 0", fontFamily: "monospace", fontWeight: 900, color: "#334155" }}>{seg.road_id}</td>
-                  <td style={{ padding: "10px 0", textAlign: "right", color: "#475569" }}>{Number(seg.length || 0).toFixed(2)}</td>
-                  {config.showSurface && <td style={{ padding: "10px 0", textTransform: "capitalize", color: "#475569" }}>{seg.surface}</td>}
-                  <td style={{ padding: "10px 0", textAlign: "center", fontWeight: 900, color: danger ? "#e11d48" : "#475569" }}>
-                    {iri.toFixed(1)}
-                  </td>
-                  <td style={{ padding: "10px 0", color: "#475569" }}>{danger ? "Rehabilitation" : "Maintenance"}</td>
-                  {config.showCost && <td style={{ padding: "10px 0", textAlign: "right", fontFamily: "monospace", color: "#475569" }}>{formatMoney(cost)}</td>}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      )}
-      
-       {/* GIS TEMPLATE */}
-      {template === "gis" && (
-        <div style={{ height: 400, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#94a3b8" }}>
-          <div style={{ marginTop: 14, fontSize: 18, fontWeight: 900, color: "#334155" }}>Ready to Export</div>
-          <div style={{ marginTop: 6, fontSize: 13 }}>
-            Package contains <span style={{ color: "#4f46e5", fontWeight: 900 }}>{displaySegments.length}</span> spatial features.
+      {/* ROW 5: SCHEDULE (The Plan) */}
+      {config.showSchedule && (
+          <div className="mt-auto">
+             <h3 className="font-bold text-slate-900 flex items-center gap-2 mb-4">
+                <Calendar className="w-4 h-4 text-slate-400"/>
+                Medium Term Expenditure Framework (MTEF)
+             </h3>
+             <table className="w-full text-xs">
+                <thead className="bg-slate-50 text-slate-500 font-bold text-left">
+                    <tr>
+                        <th className="p-3 rounded-l-lg">Financial Year</th>
+                        <th className="p-3">Target Condition</th>
+                        <th className="p-3">Risk Mitigation</th>
+                        <th className="p-3 text-right rounded-r-lg">Allocation Required</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                    {chartData.slice(0, 5).map((row, i) => (
+                        <tr key={i}>
+                            <td className="p-3 font-mono font-bold text-slate-700">{row.year} / {row.year+1}</td>
+                            <td className="p-3">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-12 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                                        <div className="h-full bg-emerald-500" style={{width: `${row.fundedVCI}%`}}/>
+                                    </div>
+                                    VCI {row.fundedVCI.toFixed(0)}
+                                </div>
+                            </td>
+                            <td className="p-3 text-slate-500">
+                                {row.fundedVCI > 50 ? "Preventative Maintenance" : "Critical Rehabilitation"}
+                            </td>
+                            <td className="p-3 text-right font-bold text-slate-900">{formatMoney(row.budget)}</td>
+                        </tr>
+                    ))}
+                </tbody>
+             </table>
           </div>
-        </div>
       )}
+
+      <footer className="text-[10px] text-slate-300 text-center uppercase tracking-widest mt-4">
+        Generated by Mosianedi • {config.author} • {new Date().toLocaleDateString()}
+      </footer>
     </div>
   );
 }
 
-const StatBox = ({ label, value }: any) => (
-  <div style={{ backgroundColor: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 12 }}>
-    <div style={{ fontSize: 10, textTransform: "uppercase", color: "#94a3b8", fontWeight: 900, marginBottom: 6 }}>{label}</div>
-    <div style={{ fontSize: 18, fontWeight: 900, color: "#0f172a" }}>{value}</div>
-  </div>
-);
+// --- SUB COMPONENTS ---
+function MetricCard({ icon, label, value, sub, color="text-slate-900" }: any) {
+    return (
+        <div className="border border-slate-200 rounded-xl p-5">
+            <div className="flex items-center gap-2 mb-3">
+                {icon}
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">{label}</span>
+            </div>
+            <div className={`text-2xl font-black ${color}`}>{value}</div>
+            <div className="text-[10px] text-slate-400 mt-1">{sub}</div>
+        </div>
+    )
+}
 
 const EmptyState = ({ label }: { label: string }) => (
   <div className="w-[210mm] min-h-[297mm] bg-white shadow-xl mx-auto flex items-center justify-center text-gray-400 text-sm">

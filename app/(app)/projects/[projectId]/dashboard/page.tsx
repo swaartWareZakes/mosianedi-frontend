@@ -3,7 +3,7 @@
 import React from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { LayoutDashboard, ArrowLeft, Download, Sparkles, History } from "lucide-react";
+import { LayoutDashboard, ArrowLeft, FileCheck, Sparkles, History, Presentation } from "lucide-react";
 
 import { useSimulationResults } from "./hooks/useSimulationResults";
 import { useProjectMeta } from "../config/hooks/useProjectMeta";
@@ -12,13 +12,15 @@ import { useNetworkSnapshot } from "../config/hooks/useNetworkSnapshot";
 
 export default function ProjectDashboardPage() {
   const params = useParams();
-  const projectId = params.projectId as string;
+  const projectId = Array.isArray(params?.projectId) ? params?.projectId[0] : params?.projectId;
 
-  const { data: project } = useProjectMeta(projectId);
-  const { results, loading: simLoading } = useSimulationResults(projectId);
-  const { data: snapshot, loading: snapLoading } = useNetworkSnapshot(projectId);
+  const { data: project } = useProjectMeta(projectId || "");
+  const { results, loading: simLoading } = useSimulationResults(projectId || "");
+  const { data: snapshot, loading: snapLoading } = useNetworkSnapshot(projectId || "");
 
   const isLoading = simLoading || snapLoading;
+
+  if (!projectId) return null;
 
   if (isLoading) {
     return (
@@ -28,7 +30,7 @@ export default function ProjectDashboardPage() {
     );
   }
 
-  // No simulation yet
+  // Handle case where no simulation exists
   if (!results) {
     return (
       <div className="flex flex-col items-center justify-center h-[65vh] text-center space-y-4">
@@ -51,25 +53,19 @@ export default function ProjectDashboardPage() {
           >
             Go to Inputs
           </Link>
-
-          <Link
-            href={`/projects/${projectId}/dashboard/advisor`}
-            className="px-5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-lg font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors inline-flex items-center justify-center gap-2"
-            title="AI needs a simulation run first"
-          >
-            <Sparkles className="w-4 h-4 text-indigo-500" />
-            AI Advisor (after sim)
-          </Link>
         </div>
       </div>
     );
   }
 
-  const startYear = results?.yearly_data?.[0]?.year;
-  const endYear = results?.yearly_data?.[results.yearly_data.length - 1]?.year;
+  // Safe data access
+  const yearlyData = results.yearly_data || [];
+  const startYear = yearlyData[0]?.year;
+  const endYear = yearlyData[yearlyData.length - 1]?.year;
 
   return (
-    <div className="space-y-6 pb-20">
+    <div className="space-y-6 pb-20 p-6">
+      
       {/* HEADER */}
       <header className="flex flex-col gap-4 border-b border-slate-200 dark:border-slate-800 pb-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -90,26 +86,28 @@ export default function ProjectDashboardPage() {
             </p>
           </div>
 
-          {/* Primary action: Send user to report builder/share flow */}
+          {/* Primary Action: Compile Report */}
           <Link
-            href={`/projects/${projectId}/presentation/share`}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors"
+            href="/reports" // Direct link to the Report Builder module
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-lg shadow-indigo-500/20"
           >
-            <Download className="w-4 h-4" />
+            <FileCheck className="w-4 h-4" />
             Compile Report
           </Link>
         </div>
 
-        {/* Quick actions row */}
+        {/* Secondary Actions Row */}
         <div className="flex flex-wrap gap-2">
+          {/* AI Advisor Button */}
           <Link
-            href={`/projects/${projectId}/dashboard/advisor`}
-            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
+            href={`/projects/${projectId}/advisor`}
+            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors group"
           >
-            <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+            <Sparkles className="w-3.5 h-3.5 text-indigo-500 group-hover:text-indigo-600" />
             AI Advisor Insights
           </Link>
 
+          {/* History Button (Opens the local history page/panel) */}
           <Link
             href={`/projects/${projectId}/dashboard/history`}
             className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
@@ -118,17 +116,19 @@ export default function ProjectDashboardPage() {
             Simulation History
           </Link>
 
+          {/* Boardroom View Button */}
           <Link
-            href={`/projects/${projectId}/presentation/live`}
+            href="/presentationmode"
             className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
           >
-            <LayoutDashboard className="w-3.5 h-3.5 text-emerald-500" />
+            <Presentation className="w-3.5 h-3.5 text-emerald-500" />
             Boardroom View
           </Link>
         </div>
       </header>
 
-      {/* MAIN PANEL */}
+      {/* MAIN DASHBOARD PANEL */}
+      {/* Passing data down - logic inside handles display */}
       <DashboardMainPanel
         projectId={projectId}
         snapshot={snapshot}
