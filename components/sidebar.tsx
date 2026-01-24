@@ -22,7 +22,8 @@ import {
   FileCheck,
   Sparkles,
   Wallet,
-  Map // Ensure Map is imported for the new link
+  Map,
+  TrendingUp // Added for the Logo
 } from "lucide-react";
 
 type Profile = {
@@ -113,7 +114,7 @@ export function Sidebar() {
     router.replace("/login");
   };
 
-  const initials = profile ? (profile.first_name[0] + profile.last_name[0]).toUpperCase() : "M";
+  const initials = profile ? (profile.first_name[0] + profile.last_name[0]).toUpperCase() : "U";
 
   const toggleSidebar = () => {
       setOpen(!open);
@@ -131,15 +132,20 @@ export function Sidebar() {
 
   return (
     <aside className={cn("flex h-full flex-col bg-[var(--sidebar-bg)] border-r border-slate-200 dark:border-slate-800 transition-all duration-300 ease-in-out z-20 shrink-0", open ? "w-64" : "w-20")}>
-      {/* HEADER */}
+      
+      {/* HEADER - UPDATED BRANDING */}
       <div className={cn("flex items-center h-16 px-4 border-b border-slate-100 dark:border-slate-800/50", open ? "justify-between" : "justify-center")}>
         {open ? (
-             <div className="flex items-center gap-2 font-bold text-lg tracking-tight text-slate-900 dark:text-white">
-                <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white">M</div>
-                <span>Mosianedi</span>
+             <div className="flex items-center gap-2 font-bold text-sm tracking-tight text-slate-900 dark:text-white leading-none">
+                <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white shrink-0">
+                    <TrendingUp className="w-5 h-5" />
+                </div>
+                <span className="leading-tight">SA Roads Funding Gap Solutions</span>
              </div>
         ) : (
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold">M</div>
+            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold">
+                <TrendingUp className="w-5 h-5" />
+            </div>
         )}
       </div>
 
@@ -163,7 +169,7 @@ export function Sidebar() {
         {/* DASHBOARD */}
         <SimpleLink href={dashboardHref} icon={<LayoutDashboard className="w-5 h-5"/>} label="Dashboard" active={pathname.includes("/dashboard")} open={open} />
         
-        {/* NETWORK & GIS (Moved here) */}
+        {/* NETWORK & GIS */}
         <SimpleLink href="/network" icon={<Map className="w-5 h-5"/>} label="Network & GIS" active={pathname.includes("/network")} open={open} />
 
         {/* PROVINCIAL REPORTING */}
@@ -177,7 +183,6 @@ export function Sidebar() {
         >
             <NavItem href={executiveCaseHref} label="Executive Case" icon={<Presentation className="w-3 h-3"/>} />
             <NavItem href={engineeringProgHref} label="Engineering Prog." icon={<Wallet className="w-3 h-3"/>} />
-            {/* GIS Removed from here */}
             <NavItem href={reportsBuilderHref} label="Submission Builder" icon={<FileCheck className="w-3 h-3"/>} />
         </NavGroup>
 

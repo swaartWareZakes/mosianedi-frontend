@@ -1,4 +1,3 @@
-/* --- ./app/(auth)/register/page.tsx (FULLY UPDATED - Input Fix) --- */
 "use client";
 
 import { FormEvent, useState } from "react";
@@ -46,7 +45,6 @@ export default function RegisterPage() {
 
     setSubmitting(true);
 
-    // 1) Create auth user
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
@@ -60,7 +58,6 @@ export default function RegisterPage() {
 
     const user = data.user;
 
-    // 2) Insert profile row
     const { error: profileError } = await supabase.from("profiles").insert({
       user_id: user.id,
       first_name: firstName,
@@ -78,18 +75,16 @@ export default function RegisterPage() {
       return;
     }
 
-    // 3) Redirect to projects (or login if you require email confirm)
     router.replace("/projects");
   };
 
   return (
-    // Card Container: Use surface-bg variable
     <div className="w-full max-w-2xl rounded-2xl border border-slate-200/70 bg-[var(--surface-bg)]/95 p-8 shadow-lg dark:border-slate-800/70">
       <h1 className="text-xl font-semibold text-[var(--foreground)]">
         Create account
       </h1>
       <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-        Start modeling road investment scenarios with Mosianedi.
+        Start modeling with <strong>SA Roads Funding Gap Solutions</strong>.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
@@ -104,15 +99,7 @@ export default function RegisterPage() {
               required
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
-              className="
-                w-full rounded-xl border border-slate-300 
-                // FIX: Use explicit variable for background and text
-                bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--input-text)]
-                placeholder:text-slate-400 dark:placeholder:text-slate-500
-                focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100
-                dark:border-slate-700 dark:focus:ring-sky-800/40
-              "
-              placeholder="" 
+              className="w-full rounded-xl border border-slate-300 bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--input-text)] placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:focus:ring-sky-800/40"
             />
           </div>
 
@@ -125,15 +112,7 @@ export default function RegisterPage() {
               required
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
-              className="
-                w-full rounded-xl border border-slate-300 
-                // FIX: Use explicit variable for background and text
-                bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--input-text)]
-                placeholder:text-slate-400 dark:placeholder:text-slate-500
-                focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100
-                dark:border-slate-700 dark:focus:ring-sky-800/40
-              "
-              placeholder="" 
+              className="w-full rounded-xl border border-slate-300 bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--input-text)] placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:focus:ring-sky-800/40"
             />
           </div>
         </div>
@@ -148,19 +127,9 @@ export default function RegisterPage() {
             required
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className="
-              w-full rounded-xl border border-slate-300 
-              // FIX: Use explicit variable for background and text
-              bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--input-text)]
-              placeholder:text-slate-400 dark:placeholder:text-slate-500
-              focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100
-              dark:border-slate-700 dark:focus:ring-sky-800/40
-            "
+            className="w-full rounded-xl border border-slate-300 bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--input-text)] placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:focus:ring-sky-800/40"
             placeholder="jabu.mosianedi"
           />
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-500">
-            This will be used inside projects and collaboration features.
-          </p>
         </div>
 
         {/* Department + Job title */}
@@ -172,18 +141,10 @@ export default function RegisterPage() {
             <select
               value={department}
               onChange={(e) => setDepartment(e.target.value)}
-              className="
-                w-full rounded-xl border border-slate-300 
-                // FIX: Use explicit variable for background and text
-                bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--input-text)]
-                focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100
-                dark:border-slate-700 dark:focus:ring-sky-800/40
-              "
+              className="w-full rounded-xl border border-slate-300 bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--input-text)] focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:focus:ring-sky-800/40"
             >
               {DEPARTMENTS.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
+                <option key={d} value={d}>{d}</option>
               ))}
             </select>
           </div>
@@ -195,18 +156,10 @@ export default function RegisterPage() {
             <select
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="
-                w-full rounded-xl border border-slate-300 
-                // FIX: Use explicit variable for background and text
-                bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--input-text)]
-                focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100
-                dark:border-slate-700 dark:focus:ring-sky-800/40
-              "
+              className="w-full rounded-xl border border-slate-300 bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--input-text)] focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:focus:ring-sky-800/40"
             >
               {JOB_TITLES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
+                <option key={t} value={t}>{t}</option>
               ))}
             </select>
           </div>
@@ -223,14 +176,7 @@ export default function RegisterPage() {
             autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="
-              w-full rounded-xl border border-slate-300 
-              // FIX: Use explicit variable for background and text
-              bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--input-text)]
-              placeholder:text-slate-400 dark:placeholder:text-slate-500
-              focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100
-              dark:border-slate-700 dark:focus:ring-sky-800/40
-            "
+            className="w-full rounded-xl border border-slate-300 bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--input-text)] placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:focus:ring-sky-800/40"
             placeholder="you@example.com"
           />
         </div>
@@ -246,14 +192,7 @@ export default function RegisterPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="
-                w-full rounded-xl border border-slate-300 
-                // FIX: Use explicit variable for background and text
-                bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--input-text)]
-                placeholder:text-slate-400 dark:placeholder:text-slate-500
-                focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100
-                dark:border-slate-700 dark:focus:ring-sky-800/40
-              "
+              className="w-full rounded-xl border border-slate-300 bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--input-text)] placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:focus:ring-sky-800/40"
               placeholder="••••••••"
             />
           </div>
@@ -267,50 +206,25 @@ export default function RegisterPage() {
               required
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="
-                w-full rounded-xl border border-slate-300 
-                // FIX: Use explicit variable for background and text
-                bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--input-text)]
-                placeholder:text-slate-400 dark:placeholder:text-slate-500
-                focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100
-                dark:border-slate-700 dark:focus:ring-sky-800/40
-              "
+              className="w-full rounded-xl border border-slate-300 bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--input-text)] placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:focus:ring-sky-800/40"
               placeholder="••••••••"
             />
           </div>
         </div>
 
-        {error && (
-          <p className="text-xs text-red-500">
-            {error}
-          </p>
-        )}
+        {error && <p className="text-xs text-red-500">{error}</p>}
 
         <button
           type="submit"
           disabled={submitting}
-          className="
-            mt-2 inline-flex w-full items-center justify-center
-            rounded-xl bg-[var(--accent-color)] px-4 py-2.5
-            text-sm font-semibold text-white
-            shadow-sm hover:brightness-110
-            disabled:cursor-not-allowed disabled:opacity-70
-            transition
-          "
+          className="mt-2 inline-flex w-full items-center justify-center rounded-xl bg-[var(--accent-color)] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70 transition"
         >
           {submitting ? "Creating account…" : "Sign up"}
         </button>
       </form>
 
       <p className="mt-4 text-center text-xs text-slate-500 dark:text-slate-400">
-        Already have an account?{" "}
-        <button
-          type="button"
-          onClick={() => router.push("/login")}
-          className="font-medium text-[var(--accent-color)] hover:underline"
-        >
-          Sign in
-        </button>
+        Already have an account? <button type="button" onClick={() => router.push("/login")} className="font-medium text-[var(--accent-color)] hover:underline">Sign in</button>
       </p>
     </div>
   );
