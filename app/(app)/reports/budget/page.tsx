@@ -1,78 +1,214 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { 
-  Wallet, 
-  TrendingUp, 
-  AlertCircle, 
-  PieChart as PieIcon, 
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Wallet,
+  TrendingUp,
+  PieChart as PieIcon,
   Download,
   Calendar,
-  Loader2
+  Loader2,
+  FileText,
+  Sheet,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabaseClient";
+import { toPng } from "html-to-image";
+import jsPDF from "jspdf";
 
 export default function BudgetSummaryPage() {
   const [loading, setLoading] = useState(true);
   const [yearlyData, setYearlyData] = useState<any[]>([]);
   const [totalCost, setTotalCost] = useState(0);
-  const [projectInfo, setProjectInfo] = useState<{name: string, province: string} | null>(null);
+  const [projectInfo, setProjectInfo] = useState<{ name: string; province: string } | null>(null);
+
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportingCsv, setExportingCsv] = useState(false);
+
+  // ✅ Wrap the schedule card (table + bar chart) so PDF retains visuals
+  const scheduleRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function fetchEngineeringData() {
-        setLoading(true);
-        try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) return;
+      setLoading(true);
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session) return;
 
-            // 1. Get Project
-            const { data: projects } = await supabase
-                .from("projects")
-                .select("id, project_name, province")
-                .order("updated_at", { ascending: false })
-                .limit(1)
-                .single();
-            
-            if (!projects) { setLoading(false); return; }
-            setProjectInfo({ name: projects.project_name, province: projects.province });
+        // 1. Get Project
+        const { data: projects } = await supabase
+          .from("projects")
+          .select("id, project_name, province")
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .single();
 
-            // 2. Get Simulation
-            const { data: sim } = await supabase
-                .from("simulation_results")
-                .select("results_payload")
-                .eq("project_id", projects.id)
-                .order("run_at", { ascending: false })
-                .limit(1)
-                .single();
-
-            if (sim?.results_payload) {
-                setYearlyData(sim.results_payload.yearly_data || []);
-                setTotalCost(sim.results_payload.total_cost_npv || 0);
-            }
-
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
+        if (!projects) {
+          setLoading(false);
+          return;
         }
+        setProjectInfo({ name: projects.project_name, province: projects.province });
+
+        // 2. Get Simulation
+        const { data: sim } = await supabase
+          .from("simulation_results")
+          .select("results_payload")
+          .eq("project_id", projects.id)
+          .order("run_at", { ascending: false })
+          .limit(1)
+          .single();
+
+        if (sim?.results_payload) {
+          setYearlyData(sim.results_payload.yearly_data || []);
+          setTotalCost(sim.results_payload.total_cost_npv || 0);
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
     }
     fetchEngineeringData();
   }, []);
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR', notation: "compact" }).format(amount);
+    return new Intl.NumberFormat("en-ZA", {
+      style: "currency",
+      currency: "ZAR",
+      notation: "compact",
+    }).format(amount);
   };
 
-  if (loading) return (
+  const fileStem = useMemo(() => {
+    const province = projectInfo?.province?.replace(/\s+/g, "_") ?? "Province";
+    const name = projectInfo?.name?.replace(/\s+/g, "_") ?? "Project";
+    const date = new Date().toISOString().slice(0, 10);
+    return `Expenditure_Schedule_${province}_${name}_${date}`;
+  }, [projectInfo]);
+
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const toCsv = (rows: any[]) => {
+    // keep raw values, not compact currency, so Excel can sum
+    const header = [
+      "financial_year",
+      "avg_condition_index_vci",
+      "pct_good",
+      "pct_fair",
+      "pct_poor",
+      "required_budget_zar",
+    ];
+
+    const lines = rows.map((y) => {
+      const fy = `FY ${y.year}/${y.year + 1}`;
+      const safe = (v: any) => {
+        // escape commas/quotes
+        const s = String(v ?? "");
+        if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+          return `"${s.replace(/"/g, '""')}"`;
+        }
+        return s;
+      };
+
+      return [
+        safe(fy),
+        safe(Number(y.avg_condition_index ?? 0).toFixed(2)),
+        safe(Number(y.pct_good ?? 0).toFixed(2)),
+        safe(Number(y.pct_fair ?? 0).toFixed(2)),
+        safe(Number(y.pct_poor ?? 0).toFixed(2)),
+        safe(Number(y.total_maintenance_cost ?? 0).toFixed(2)),
+      ].join(",");
+    });
+
+    return [header.join(","), ...lines].join("\n");
+  };
+
+  const handleExportCsv = async () => {
+    setExportingCsv(true);
+    try {
+      const csv = toCsv(yearlyData || []);
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      downloadBlob(blob, `${fileStem}.csv`);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to export CSV.");
+    } finally {
+      setExportingCsv(false);
+    }
+  };
+
+  const handleExportPdf = async () => {
+    if (!scheduleRef.current) return;
+
+    setExportingPdf(true);
+    try {
+      // let layout settle
+      await new Promise((r) => setTimeout(r, 50));
+
+      const node = scheduleRef.current;
+
+      const dataUrl = await toPng(node, {
+        cacheBust: true,
+        pixelRatio: 2,
+        backgroundColor: "#ffffff",
+      });
+
+      // Load image to get dimensions
+      const img = new Image();
+      img.src = dataUrl;
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("Failed to load export image"));
+      });
+
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
+      const imgWidth = pdfWidth;
+      const imgHeight = (img.height * imgWidth) / img.width;
+
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(dataUrl, "PNG", 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft > 0) {
+        position -= pageHeight;
+        pdf.addPage();
+        pdf.addImage(dataUrl, "PNG", 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      pdf.save(`${fileStem}.pdf`);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to export PDF.");
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
+  if (loading)
+    return (
       <div className="h-full flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-indigo-500"/>
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
       </div>
-  );
+    );
 
   return (
     <div className="p-8 pb-20 max-w-7xl mx-auto space-y-8">
-      
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -81,17 +217,35 @@ export default function BudgetSummaryPage() {
             {projectInfo ? `${projectInfo.province}: ${projectInfo.name}` : "Detailed Cost Schedule"}
           </p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-bold rounded-lg hover:opacity-90 transition-opacity">
-          <Download className="w-4 h-4" />
-          Export Schedule
-        </button>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportCsv}
+            disabled={exportingCsv || yearlyData.length === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-sm font-bold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {exportingCsv ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sheet className="w-4 h-4" />}
+            {exportingCsv ? "Exporting..." : "Export CSV"}
+          </button>
+
+          <button
+            onClick={handleExportPdf}
+            disabled={exportingPdf || yearlyData.length === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {exportingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+            {exportingPdf ? "Exporting..." : "Export PDF"}
+          </button>
+        </div>
       </div>
 
       {/* KPI Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-blue-100 text-blue-600 rounded-lg"><Wallet className="w-5 h-5" /></div>
+            <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
+              <Wallet className="w-5 h-5" />
+            </div>
             <span className="text-xs font-bold uppercase text-slate-500">Program Total (NPV)</span>
           </div>
           <div className="text-3xl font-black text-slate-900 dark:text-white">{formatCurrency(totalCost)}</div>
@@ -100,18 +254,22 @@ export default function BudgetSummaryPage() {
 
         <div className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg"><TrendingUp className="w-5 h-5" /></div>
+            <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg">
+              <TrendingUp className="w-5 h-5" />
+            </div>
             <span className="text-xs font-bold uppercase text-slate-500">Target Condition</span>
           </div>
           <div className="text-3xl font-black text-slate-900 dark:text-white">
-            VCI {yearlyData.length > 0 ? yearlyData[yearlyData.length-1].avg_condition_index.toFixed(0) : "0"}
+            VCI {yearlyData.length > 0 ? yearlyData[yearlyData.length - 1].avg_condition_index.toFixed(0) : "0"}
           </div>
           <div className="text-sm text-emerald-600 mt-1 font-medium">Sustainable Level</div>
         </div>
 
         <div className="p-6 bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-200 dark:border-amber-800 shadow-sm">
           <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-amber-100 text-amber-600 rounded-lg"><Calendar className="w-5 h-5" /></div>
+            <div className="p-2 bg-amber-100 text-amber-600 rounded-lg">
+              <Calendar className="w-5 h-5" />
+            </div>
             <span className="text-xs font-bold uppercase text-amber-700 dark:text-amber-400">Peak Funding Year</span>
           </div>
           <div className="text-3xl font-black text-amber-600 dark:text-amber-400">2027</div>
@@ -119,14 +277,18 @@ export default function BudgetSummaryPage() {
         </div>
       </div>
 
-      {/* Yearly Breakdown Table */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+      {/* Yearly Breakdown Table + “chart bars” */}
+      <div
+        ref={scheduleRef}
+        className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden"
+      >
         <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
-            <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <PieIcon className="w-4 h-4 text-slate-400" />
-                Annual Expenditure Schedule
-            </h3>
+          <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <PieIcon className="w-4 h-4 text-slate-400" />
+            Annual Expenditure Schedule
+          </h3>
         </div>
+
         <table className="w-full text-sm text-left">
           <thead className="bg-slate-50 dark:bg-slate-800/50 text-xs uppercase font-bold text-slate-500">
             <tr>
@@ -136,32 +298,41 @@ export default function BudgetSummaryPage() {
               <th className="px-6 py-4 text-right">Required Budget</th>
             </tr>
           </thead>
+
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
             {yearlyData.map((year: any) => (
-                <tr key={year.year} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                  <td className="px-6 py-4 font-bold text-slate-900 dark:text-white">FY {year.year}/{year.year+1}</td>
-                  <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                          <div className="w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                              <div className="h-full bg-emerald-500" style={{ width: `${year.avg_condition_index}%` }} />
-                          </div>
-                          <span className="font-mono text-slate-600 dark:text-slate-300">{year.avg_condition_index.toFixed(1)}</span>
-                      </div>
-                  </td>
-                  <td className="px-6 py-4 text-slate-500 text-xs">
-                      <span className="text-emerald-600 font-bold">{year.pct_good.toFixed(0)}%</span> / 
-                      <span className="text-amber-600 font-bold"> {year.pct_fair.toFixed(0)}%</span> / 
-                      <span className="text-rose-600 font-bold"> {year.pct_poor.toFixed(0)}%</span>
-                  </td>
-                  <td className="px-6 py-4 text-right font-mono font-bold text-slate-900 dark:text-white">
-                      {formatCurrency(year.total_maintenance_cost)}
-                  </td>
-                </tr>
+              <tr key={year.year} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                <td className="px-6 py-4 font-bold text-slate-900 dark:text-white">FY {year.year}/{year.year + 1}</td>
+
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-500" style={{ width: `${year.avg_condition_index}%` }} />
+                    </div>
+                    <span className="font-mono text-slate-600 dark:text-slate-300">
+                      {Number(year.avg_condition_index ?? 0).toFixed(1)}
+                    </span>
+                  </div>
+                </td>
+
+                <td className="px-6 py-4 text-slate-500 text-xs">
+                  <span className="text-emerald-600 font-bold">{Number(year.pct_good ?? 0).toFixed(0)}%</span> /{" "}
+                  <span className="text-amber-600 font-bold">{Number(year.pct_fair ?? 0).toFixed(0)}%</span> /{" "}
+                  <span className="text-rose-600 font-bold">{Number(year.pct_poor ?? 0).toFixed(0)}%</span>
+                </td>
+
+                <td className="px-6 py-4 text-right font-mono font-bold text-slate-900 dark:text-white">
+                  {formatCurrency(Number(year.total_maintenance_cost ?? 0))}
+                </td>
+              </tr>
             ))}
+
             {yearlyData.length === 0 && (
-                <tr>
-                    <td colSpan={4} className="p-8 text-center text-slate-400">No schedule generated.</td>
-                </tr>
+              <tr>
+                <td colSpan={4} className="p-8 text-center text-slate-400">
+                  No schedule generated.
+                </td>
+              </tr>
             )}
           </tbody>
         </table>

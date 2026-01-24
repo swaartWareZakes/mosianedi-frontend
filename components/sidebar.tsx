@@ -21,7 +21,8 @@ import {
   Layers,
   FileCheck,
   Sparkles,
-  Wallet
+  Wallet,
+  Map // Ensure Map is imported for the new link
 } from "lucide-react";
 
 type Profile = {
@@ -32,7 +33,7 @@ type Profile = {
   title: string;
 };
 
-// ... [NavGroup, NavItem, SimpleLink components remain exactly the same] ...
+// --- 1. NAV GROUP (Accordion) ---
 function NavGroup({ label, icon, active, expanded, onToggle, children, sidebarOpen }: any) {
     if (!sidebarOpen) {
         return (
@@ -58,6 +59,7 @@ function NavGroup({ label, icon, active, expanded, onToggle, children, sidebarOp
     );
 }
 
+// --- 2. NAV ITEM (Sub-Link) ---
 function NavItem({ href, label, icon }: any) {
     const pathname = usePathname();
     const isActive = href ? pathname === href : false;
@@ -69,6 +71,7 @@ function NavItem({ href, label, icon }: any) {
     );
 }
 
+// --- 3. SIMPLE LINK (Single Level) ---
 function SimpleLink({ href, icon, label, active, open }: any) {
     return (
         <Link href={href} className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all group relative", active ? "bg-[var(--accent-color)] text-white shadow-md shadow-indigo-500/20" : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200", !open && "justify-center")}>
@@ -119,7 +122,6 @@ export function Sidebar() {
 
   // ✅ DYNAMIC ROUTES
   const dashboardHref = projectId ? `/projects/${projectId}/dashboard` : "/dashboard";
-  // If we have a project, go deep. If not, go to the global advisor picker page.
   const advisorHref = projectId ? `/projects/${projectId}/advisor` : "/advisor";
 
   // ✅ REPORT LINKS
@@ -154,31 +156,28 @@ export function Sidebar() {
         >
             <NavItem href="/projects/recent" label="Recent Activity" icon={<Clock className="w-3 h-3"/>} />
             <NavItem href="/projects" label="All Proposals" icon={<FileText className="w-3 h-3"/>} />
-            
-            {/* AI Advisor - Always Visible Now */}
-            <NavItem 
-                href={advisorHref}
-                label="AI Advisor" 
-                icon={<Sparkles className="w-3 h-3 text-purple-500"/>} 
-            />
-
+            <NavItem href={advisorHref} label="AI Advisor" icon={<Sparkles className="w-3 h-3 text-purple-500"/>} />
             <NavItem href={projectId ? `/projects/${projectId}/governance` : "/projects/governance"} label="Governance" icon={<ShieldAlert className="w-3 h-3"/>} />
         </NavGroup>
 
+        {/* DASHBOARD */}
         <SimpleLink href={dashboardHref} icon={<LayoutDashboard className="w-5 h-5"/>} label="Dashboard" active={pathname.includes("/dashboard")} open={open} />
         
+        {/* NETWORK & GIS (Moved here) */}
+        <SimpleLink href="/network" icon={<Map className="w-5 h-5"/>} label="Network & GIS" active={pathname.includes("/network")} open={open} />
+
         {/* PROVINCIAL REPORTING */}
         <NavGroup 
             label="Provincial Reporting" 
             icon={<Briefcase className="w-5 h-5"/>} 
-            active={pathname.includes("/reports") || pathname.includes("/network")}
+            active={pathname.includes("/reports")}
             expanded={reportingOpen}
             onToggle={() => { if (!open) setOpen(true); setReportingOpen(!reportingOpen); }}
             sidebarOpen={open}
         >
             <NavItem href={executiveCaseHref} label="Executive Case" icon={<Presentation className="w-3 h-3"/>} />
             <NavItem href={engineeringProgHref} label="Engineering Prog." icon={<Wallet className="w-3 h-3"/>} />
-            <NavItem href="/network" label="GIS & Evidence" icon={<Layers className="w-3 h-3"/>} />
+            {/* GIS Removed from here */}
             <NavItem href={reportsBuilderHref} label="Submission Builder" icon={<FileCheck className="w-3 h-3"/>} />
         </NavGroup>
 
