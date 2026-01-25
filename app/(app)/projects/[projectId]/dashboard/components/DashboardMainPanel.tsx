@@ -189,12 +189,12 @@ export function DashboardMainPanel({
       )}
 
       {/* 👇 5. AI STRATEGY CARD (Moved to Bottom) */}
-      <AiStrategyCard 
+      {/* <AiStrategyCard 
          analysis={analysis} 
          loading={aiLoading} 
          error={aiError} 
          onGenerate={generateAnalysis} 
-      />
+      /> */}
     </div>
   );
 }
