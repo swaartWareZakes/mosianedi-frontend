@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useForecast } from "../hooks/useForecast";
-import { TrendingUp, Clock, AlertTriangle, Droplets, Gauge } from "lucide-react";
+import { TrendingUp, Clock, AlertTriangle, Droplets } from "lucide-react";
 
 export function ScenarioAssumptionsCard({ projectId }: { projectId: string }) {
   const { data, loading, saving, updateField } = useForecast(projectId);
@@ -12,6 +12,9 @@ export function ScenarioAssumptionsCard({ projectId }: { projectId: string }) {
   }
 
   if (!data) return null;
+
+  const currentYear = new Date().getFullYear();
+  const projectionEnd = currentYear + 1 + data.analysis_duration;
 
   return (
     <div className="bg-[var(--surface-bg)] border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
@@ -98,7 +101,7 @@ export function ScenarioAssumptionsCard({ projectId }: { projectId: string }) {
           </div>
         </div>
 
-        {/* COL 3: TIME */}
+        {/* COL 3: TIME - UPDATED LIMITS */}
         <div className="space-y-4">
            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Time Horizon</h4>
            
@@ -109,14 +112,14 @@ export function ScenarioAssumptionsCard({ projectId }: { projectId: string }) {
               </div>
               <input 
                 type="range" 
-                min="3" 
-                max="20" 
+                min="1" 
+                max="50"  // <--- UPDATED TO 50
                 value={data.analysis_duration}
                 onChange={(e) => updateField("analysis_duration", Number(e.target.value))}
-                className="w-full mt-3 accent-indigo-600"
+                className="w-full mt-3 accent-indigo-600 cursor-pointer"
               />
-              <p className="text-[10px] text-indigo-600/70 dark:text-indigo-400/70 mt-1">
-                 Projection until {new Date().getFullYear() + 1 + data.analysis_duration}
+              <p className="text-[10px] text-indigo-600/70 dark:text-indigo-400/70 mt-1 font-mono">
+                 Projection until {projectionEnd}
               </p>
            </div>
         </div>

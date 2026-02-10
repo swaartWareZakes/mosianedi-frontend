@@ -4,12 +4,15 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
+// --- UPDATED: Added Treasury & Finance options to trigger Backend Roles ---
 const DEPARTMENTS = [
   "Planning",
   "Design",
   "Construction",
   "Maintenance",
   "Asset Management",
+  "Provincial Treasury", // <--- CRITICAL: Triggers 'treasury' role
+  "Strategic Finance",   // <--- CRITICAL: Triggers 'treasury' role
 ];
 
 const JOB_TITLES = [
@@ -18,6 +21,8 @@ const JOB_TITLES = [
   "Transportation Planner",
   "Project Manager",
   "Asset Management Specialist",
+  "Budget Analyst",      // <--- Added for realism
+  "Chief Financial Officer" // <--- Added for realism
 ];
 
 export default function RegisterPage() {
@@ -45,6 +50,7 @@ export default function RegisterPage() {
 
     setSubmitting(true);
 
+    // 1. Create Auth User
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
@@ -58,6 +64,7 @@ export default function RegisterPage() {
 
     const user = data.user;
 
+    // 2. Create Profile (This sets the Department -> Role)
     const { error: profileError } = await supabase.from("profiles").insert({
       user_id: user.id,
       first_name: firstName,
@@ -75,6 +82,7 @@ export default function RegisterPage() {
       return;
     }
 
+    // 3. Redirect
     router.replace("/projects");
   };
 
@@ -219,7 +227,7 @@ export default function RegisterPage() {
           disabled={submitting}
           className="mt-2 inline-flex w-full items-center justify-center rounded-xl bg-[var(--accent-color)] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70 transition"
         >
-          {submitting ? "Creating account…" : "Sign up"}
+          {submitting ? "Creating account..." : "Sign up"}
         </button>
       </form>
 

@@ -1,14 +1,13 @@
 "use client";
 
 import React from "react";
-import { Activity, Coins, Layers, BarChart3, RefreshCw } from "lucide-react";
+import { Activity, Coins, Layers, BarChart3, RefreshCw, Info } from "lucide-react";
 import { useNetworkSnapshot } from "../hooks/useNetworkSnapshot";
 
-// --- FIX: Safe formatting functions ---
+// --- Helper Functions ---
 function fmtCurrency(val: any) {
-  const v = Number(val); // Convert to number
-  if (!Number.isFinite(v)) return "R 0"; // Safety check
-
+  const v = Number(val);
+  if (!Number.isFinite(v)) return "R 0"; 
   if (v >= 1_000_000_000) return `R ${(v / 1_000_000_000).toFixed(1)} Billion`;
   if (v >= 1_000_000) return `R ${(v / 1_000_000).toFixed(1)} Million`;
   return `R ${v.toLocaleString()}`;
@@ -23,7 +22,7 @@ function fmtNum(val: any) {
 export function NetworkSnapshotCard({ projectId }: { projectId: string }) {
   const { data, loading, error, refetch } = useNetworkSnapshot(projectId);
 
-  // Determine health color based on VCI (Default to 0 if data missing)
+  // VCI Health Logic
   const vci = data?.avgVci || 0;
   let healthColor = "bg-rose-500"; 
   let healthText = "Critical";
@@ -33,14 +32,13 @@ export function NetworkSnapshotCard({ projectId }: { projectId: string }) {
   else if (vci > 50) { healthColor = "bg-amber-500"; healthText = "Fair"; }
   else if (vci > 30) { healthColor = "bg-orange-500"; healthText = "Poor"; }
 
-  // Safe variables for rendering
   const totalLength = data?.totalLengthKm || 0;
   const pavedLength = data?.pavedLengthKm || 0;
   const gravelLength = data?.gravelLengthKm || 0;
   const assetValue = data?.assetValue || 0;
 
   return (
-    <div className="bg-[var(--surface-bg)] rounded-2xl shadow-lg border border-slate-200/50 dark:border-slate-800/50 overflow-hidden">
+    <div className="bg-[var(--surface-bg)] rounded-2xl shadow-lg border border-slate-200/50 dark:border-slate-800/50 overflow-visible relative">
       
       {/* Header */}
       <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
@@ -74,9 +72,21 @@ export function NetworkSnapshotCard({ projectId }: { projectId: string }) {
             
             {/* 1. HERO: ASSET VALUE (CRC) */}
             <div className="p-6">
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 mb-1 relative">
                     <Coins className="w-4 h-4 text-slate-400" />
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Net Asset Value (CRC)</span>
+                    
+                    {/* --- TRANSPARENCY TOOLTIP --- */}
+                    <div className="group relative ml-auto cursor-help">
+                        <Info className="w-4 h-4 text-slate-300 hover:text-indigo-500 transition-colors" />
+                        <div className="absolute right-0 bottom-full mb-2 w-64 p-3 bg-slate-900 text-white text-[10px] rounded-lg shadow-xl z-50 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                            <strong className="text-indigo-300">Methodology:</strong><br/>
+                            (Paved km × R3.5m) + (Gravel km × R0.25m)<br/>
+                            <span className="opacity-70 mt-1 block italic">Based on COTO standard replacement rates.</span>
+                             {/* Arrow */}
+                            <div className="absolute top-full right-1 -mt-1 border-4 border-transparent border-t-slate-900" />
+                        </div>
+                    </div>
                 </div>
                 <div className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
                     {fmtCurrency(assetValue)}
@@ -88,10 +98,25 @@ export function NetworkSnapshotCard({ projectId }: { projectId: string }) {
 
             {/* 2. VCI GAUGE */}
             <div className="p-6">
-                <div className="flex justify-between items-end mb-2">
+                <div className="flex justify-between items-end mb-2 relative">
                     <div className="flex items-center gap-2">
                         <BarChart3 className="w-4 h-4 text-slate-400" />
                         <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Network Condition (VCI)</span>
+                        
+                        {/* --- TRANSPARENCY TOOLTIP --- */}
+                         <div className="group relative cursor-help">
+                            <Info className="w-4 h-4 text-slate-300 hover:text-indigo-500 transition-colors" />
+                            <div className="absolute left-0 bottom-full mb-2 w-64 p-3 bg-slate-900 text-white text-[10px] rounded-lg shadow-xl z-50 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                <strong className="text-indigo-300">Visual Condition Index:</strong><br/>
+                                0-30: Critical/Poor<br/>
+                                30-50: Warning/Fair<br/>
+                                50-85: Good<br/>
+                                85+: Excellent<br/>
+                                <span className="opacity-70 mt-1 block italic">Calculated as weighted average of all segments.</span>
+                                {/* Arrow */}
+                                <div className="absolute top-full left-1 -mt-1 border-4 border-transparent border-t-slate-900" />
+                            </div>
+                        </div>
                     </div>
                     <div className="text-right">
                         <span className="text-2xl font-bold text-slate-900 dark:text-white">{vci.toFixed(1)}</span>

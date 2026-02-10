@@ -1,24 +1,27 @@
 "use client";
 
-import React from "react";
-import { useParams } from "next/navigation";
+import React, { useState, useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { 
   Sparkles, 
   Plus, 
   Loader2, 
   Clock, 
-  AlertTriangle
+  AlertTriangle,
+  ChevronDown
 } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
 
-// Ensure these imports point to the files you created
+// Hooks & Components
 import { useAdvisor } from "./hooks/useAdvisor";
 import { InsightDisplay } from "./components/InsightDisplay";
-
-// Fix: Corrected path to point to the sibling 'components' folder inside [projectId]
 import { ProjectNavBar } from "../components/ProjectNavBar";
+import { useProjectMeta } from "../config/hooks/useProjectMeta";
 
 export default function AIAdvisorPage() {
   const params = useParams();
+  const router = useRouter();
+  
   // Safe extraction of projectId from URL
   const projectId = Array.isArray(params?.projectId) ? params?.projectId[0] : params?.projectId;
 
@@ -33,13 +36,68 @@ export default function AIAdvisorPage() {
     error 
   } = useAdvisor(projectId || "");
 
-  // 2. Safety Check
+  // 2. Fetch Project Meta for Context Banner
+  const { data: projectMeta } = useProjectMeta(projectId || "");
+
+  // 3. Fetch All Projects for Dropdown
+  const [allProjects, setAllProjects] = useState<any[]>([]);
+  useEffect(() => {
+      async function loadProjects() {
+          const { data } = await supabase.from('projects').select('id, project_name');
+          if(data) setAllProjects(data);
+      }
+      loadProjects();
+  }, []);
+
+  const handleProjectSwitch = (newId: string) => {
+      router.push(`/projects/${newId}/advisor`);
+  };
+
+  // 4. Safety Check
   if (!projectId) return <div className="p-8">Error: Project ID missing</div>;
 
-  // 3. Render
   return (
     <div className="h-full w-full bg-[var(--background)] flex flex-col">
        
+       {/* --- NEW: AI CONTEXT BANNER --- */}
+       <div className="bg-slate-900 text-white px-6 py-2 flex items-center justify-between text-xs border-b border-slate-800">
+          <div className="flex items-center gap-3">
+             <div className="flex items-center gap-1.5 opacity-70">
+                <Sparkles className="w-3 h-3 text-indigo-400" />
+                <span className="uppercase tracking-widest font-bold">AI Context:</span>
+             </div>
+             <span className="font-mono text-emerald-400 font-bold">
+                {projectMeta?.project_name || "Loading..."}
+             </span>
+             <span className="opacity-30">|</span>
+             <span className="font-medium text-slate-300">
+                {projectMeta?.province || "ZA"}
+             </span>
+          </div>
+
+          <div className="flex items-center gap-4">
+             <div className="opacity-50">Model: GPT-4o</div>
+             
+             {/* Simple Project Switcher */}
+             <div className="relative group">
+                <button className="flex items-center gap-1 hover:text-white transition-colors">
+                    Switch Context <ChevronDown className="w-3 h-3" />
+                </button>
+                <div className="absolute right-0 top-full mt-1 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden hidden group-hover:block z-50">
+                    {allProjects.map(p => (
+                        <button 
+                            key={p.id}
+                            onClick={() => handleProjectSwitch(p.id)}
+                            className="w-full text-left px-3 py-2 hover:bg-slate-700 text-slate-300 hover:text-white truncate"
+                        >
+                            {p.project_name}
+                        </button>
+                    ))}
+                </div>
+             </div>
+          </div>
+       </div>
+
        <div className="sticky top-0 z-10 bg-[var(--background)]">
           <ProjectNavBar projectId={projectId} />
        </div>

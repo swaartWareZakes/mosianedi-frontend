@@ -3,7 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { TrendingUp, BarChart3, BrainCircuit, CheckCircle2 } from "lucide-react";
+import { TrendingUp, BarChart3, BrainCircuit } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -30,7 +30,7 @@ export default function LoginPage() {
     }
 
     if (data.session) {
-      router.replace("/projects");
+      router.replace("/projects/recent");
     }
   };
 

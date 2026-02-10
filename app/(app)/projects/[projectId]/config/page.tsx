@@ -1,168 +1,199 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { ArrowLeft, Loader2, Calendar, FileText } from "lucide-react";
-import { supabase } from "@/lib/supabaseClient"; // Added for logging
+import { useParams, useRouter } from "next/navigation";
+import { ArrowLeft, ArrowRight, LayoutDashboard, Loader2, Check } from "lucide-react";
 
-// Updated Imports
+// Components
+import { WizardStepper } from "./components/WizardStepper";
+import { ProposalInputsCard } from "./components/ProposalInputsCard";
+// import { ProvincialStatsCard } from "./components/ProvincialStatsCard"; // Removed as requested
 import { NetworkSnapshotCard } from "./components/NetworkSnapshotCard";
+import { NetworkBreakdowns } from "../../../network/components/NetworkBreakdowns"; 
 import { ScenarioAssumptionsCard } from "./components/ScenarioAssumptionsCard";
 import { RunSimulationCard } from "./components/RunSimulationCard";
-import { ProjectNavBar } from "../components/ProjectNavBar"; // Added Nav Bar
+import { ProjectNavBar } from "../components/ProjectNavBar";
 
 // Hooks
 import { useProposalData } from "./hooks/useProposalData";
-import { useProjectMeta } from "./hooks/useProjectMeta"; 
+import { useProjectMeta } from "./hooks/useProjectMeta";
+import { useNetworkSnapshot } from "./hooks/useNetworkSnapshot";
 
-// Components
-import { ProposalInputsCard } from "./components/ProposalInputsCard";
-
-function ProposalInputsLoadingCard() {
-  return (
-    <div className="rounded-2xl bg-[var(--surface-bg)] shadow-lg p-6 border border-slate-200/50 dark:border-slate-800/50">
-      <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        <div className="text-sm font-medium">Loading proposal inputs…</div>
-      </div>
-      <div className="mt-4 space-y-3">
-        <div className="h-4 w-1/2 rounded bg-slate-200/60 dark:bg-slate-800/60" />
-        <div className="h-4 w-2/3 rounded bg-slate-200/60 dark:bg-slate-800/60" />
-        <div className="h-20 w-full rounded bg-slate-200/60 dark:bg-slate-800/60" />
-      </div>
-    </div>
-  );
-}
-
-export default function ProjectConfigPage() {
+export default function ProjectWizardPage() {
   const params = useParams();
-  const projectId = Array.isArray(params?.projectId)
-    ? params?.projectId[0]
-    : (params?.projectId as string | undefined);
+  const router = useRouter();
+  const projectId = Array.isArray(params?.projectId) ? params?.projectId[0] : params?.projectId;
 
-  if (!projectId) {
-    return <div className="p-6 text-rose-500">Error: Project ID not found.</div>;
-  }
+  const [step, setStep] = useState(1);
+  const [navigating, setNavigating] = useState(false);
+  
+  // Data Hooks
+  const { data: proposal, loading: proposalLoading, patchProposalData } = useProposalData(projectId || "");
+  const { data: projectMeta } = useProjectMeta(projectId || "");
+  const { data: snapshot, refetch: refreshSnapshot } = useNetworkSnapshot(projectId || "");
 
-  // 1. Fetch Data
-  const { data, loading, saving, error, patchProposalData } = useProposalData(projectId);
-  const { data: projectMeta, loading: metaLoading } = useProjectMeta(projectId);
+  if (!projectId) return null;
 
-  // 2. Wrapped Save Function with Logging
-  const handleSaveWithLog = async (updates: any) => {
-      // Perform the actual save
-      await patchProposalData(updates);
+  // --- ACTIONS ---
 
-      // Log the activity
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-          await supabase.from("project_activity_log").insert({
-              project_id: projectId,
-              user_id: user.id,
-              action_type: 'config_update',
-              details: { note: "Updated proposal inputs" }
-          });
-      }
+  const handleNext = async () => {
+    setNavigating(true);
+    
+    // Simulate a brief pause for UX confidence (and ensure background saves complete)
+    // If we are on Step 1, we force a snapshot refresh to ensure the backend calculation is ready for Step 2
+    if (step === 1) {
+       // We can trigger an explicit save here if the component wasn't auto-saving, 
+       // but your ProposalInputsCard handles it. 
+       // We'll just wait for the snapshot calculation.
+       await new Promise(r => setTimeout(r, 800)); // Minimal UX delay
+       await refreshSnapshot();
+    } else {
+       await new Promise(r => setTimeout(r, 400));
+    }
+
+    setStep((prev) => Math.min(prev + 1, 4));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    setNavigating(false);
+  };
+
+  const handleBack = () => {
+    setStep((prev) => Math.max(prev - 1, 1));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleFinish = () => {
+    router.push(`/projects/${projectId}/dashboard`);
   };
 
   return (
-    <div className="h-full w-full bg-[var(--background)] overflow-y-auto">
+    <div className="h-full w-full bg-[var(--background)] flex flex-col">
       
-      {/* Sticky Project Nav */}
-      <div className="sticky top-0 z-10 bg-[var(--background)]">
-          <ProjectNavBar projectId={projectId} />
+      {/* 1. Top Nav */}
+      <div className="sticky top-0 z-50">
+        <ProjectNavBar projectId={projectId} />
       </div>
 
-      <div className="p-8 pb-20">
-        {/* --- HEADER --- */}
-        <header className="border-b border-slate-200 dark:border-slate-800 pb-6 mb-8">
-            <div className="space-y-4">
-            
-            <Link
-                href="/projects"
-                className="inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
-            >
-                <ArrowLeft className="h-4 w-4" />
-                Back to projects
-            </Link>
+      <div className="flex flex-1 overflow-hidden">
+        
+        {/* 2. Left Sidebar (Wizard Stepper) */}
+        <aside className="hidden lg:block w-72 bg-[var(--surface-bg)] border-r border-slate-200 dark:border-slate-800 overflow-y-auto">
+             <div className="p-6">
+                 <Link href="/projects" className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-indigo-600 mb-8 transition-colors">
+                    <ArrowLeft className="w-3 h-3" /> Back to List
+                 </Link>
+                 <div className="mb-2">
+                     <h1 className="text-xl font-black text-slate-900 dark:text-white">{projectMeta?.project_name || "Project"}</h1>
+                     <span className="text-xs font-mono bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-slate-500">
+                        {projectMeta?.province || "ZA"} • FY{projectMeta?.start_year}
+                     </span>
+                 </div>
+             </div>
+             <WizardStepper currentStep={step} onJump={setStep} />
+        </aside>
 
-            {metaLoading ? (
-                <div className="space-y-3 animate-pulse">
-                <div className="h-10 w-2/3 bg-slate-200 dark:bg-slate-800 rounded-lg" />
-                <div className="h-6 w-1/3 bg-slate-100 dark:bg-slate-800/50 rounded-lg" />
-                </div>
-            ) : (
+        {/* 3. Main Content Area */}
+        <main className="flex-1 overflow-y-auto bg-[var(--background)]">
+            <div className="max-w-4xl mx-auto p-8 space-y-8 pb-32">
+            
+            {/* --- STEP 1: INPUTS --- */}
+            {step === 1 && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
                 <div className="space-y-2">
-                <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
-                    Proposal for{" "}
-                    <span className="text-indigo-600 dark:text-indigo-400">
-                    {projectMeta?.province || "Unassigned Province"}
-                    </span>
-                </h1>
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Data Inputs</h2>
+                    <p className="text-slate-500">Define the physical inventory and traffic conditions. This sets the baseline for the simulation.</p>
+                </div>
                 
-                <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm md:text-base font-medium text-slate-500 dark:text-slate-400">
-                    <div className="flex items-center gap-1.5">
-                    <Calendar className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-                    <span>{projectMeta?.start_year ? `${projectMeta.start_year} Financial Year` : "Year not set"}</span>
-                    </div>
-                    
-                    <div className="hidden sm:block w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-700" />
-                    
-                    <div className="flex items-center gap-1.5">
-                    <FileText className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-                    <span className="text-slate-700 dark:text-slate-300">
-                        {projectMeta?.project_name || "Untitled Proposal"}
-                    </span>
-                    </div>
+                {proposalLoading ? (
+                    <div className="h-64 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-slate-400"/></div>
+                ) : (
+                    <ProposalInputsCard 
+                        proposal={proposal} 
+                        saving={false} // Hook handles internal saving state now
+                        onSave={patchProposalData} 
+                    />
+                )}
+                </div>
+            )}
+
+            {/* --- STEP 2: NETWORK PROFILE --- */}
+            {step === 2 && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                <div className="space-y-2">
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Network Profile</h2>
+                    <p className="text-slate-500">Review the calculated Asset Value (CRC) and Visual Condition Index (VCI) before forecasting.</p>
+                </div>
+
+                <NetworkSnapshotCard projectId={projectId} />
+                
+                <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
+                    <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-6">Visual Breakdown</h3>
+                    <NetworkBreakdowns snapshot={snapshot} />
                 </div>
                 </div>
             )}
-            </div>
-        </header>
 
-        {/* --- ERROR --- */}
-        {error && (
-            <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-medium text-rose-700">
-            <p>Unable to load proposal data:</p>
-            <pre className="mt-1 whitespace-pre-wrap text-xs opacity-80">{error}</pre>
-            </div>
-        )}
+            {/* --- STEP 3: FORECAST SETTINGS --- */}
+            {step === 3 && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                <div className="space-y-2">
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Forecast Strategy</h2>
+                    <p className="text-slate-500">Adjust economic variables and deterioration rates to shape the long-term outlook.</p>
+                </div>
 
-        {/* --- CONTENT --- */}
-        <div className="grid gap-8 lg:grid-cols-[1.7fr,1.3fr]">
-            
-            {/* LEFT COLUMN: Inputs */}
-            <div className="space-y-8">
-            {loading ? (
-                <ProposalInputsLoadingCard />
-            ) : (
-                <>
-                {/* 1. Green Blocks (Inputs) */}
-                <ProposalInputsCard
-                    proposal={data}
-                    saving={saving}
-                    onSave={handleSaveWithLog} // Use the new wrapper
-                />
-                </>
+                <ScenarioAssumptionsCard projectId={projectId} />
+                </div>
             )}
-            
-            {/* 2. Forecast Strategy (Inflation/Deterioration) */}
-            <ScenarioAssumptionsCard projectId={projectId} />
-            </div>
 
-            {/* RIGHT COLUMN: Results & Actions */}
-            <div className="space-y-8">
-            {/* 3. The Asset Profile (Visual Feedback) */}
-            <NetworkSnapshotCard projectId={projectId} />
-            
-            {/* 4. The Simulation Control Center (Action) */}
-            <div className="sticky top-20">
+            {/* --- STEP 4: SIMULATION --- */}
+            {step === 4 && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                <div className="space-y-2">
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Run Simulation</h2>
+                    <p className="text-slate-500">Execute the RoNET engine. This will generate the final budget requirements and condition forecast.</p>
+                </div>
+
                 <RunSimulationCard projectId={projectId} />
+                </div>
+            )}
+
             </div>
-            </div>
+        </main>
+      </div>
+
+      {/* 4. Footer Navigation (Fixed) */}
+      <div className="sticky bottom-0 bg-[var(--surface-bg)] border-t border-slate-200 dark:border-slate-800 p-6 z-40">
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+           <button 
+             onClick={handleBack}
+             disabled={step === 1 || navigating}
+             className="px-6 py-3 rounded-xl font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+           >
+             Back
+           </button>
+
+           {step < 4 ? (
+             <button 
+               onClick={handleNext}
+               disabled={navigating}
+               className="group flex items-center gap-2 px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-500/20 transition-all hover:scale-105 active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
+             >
+               {navigating ? <Loader2 className="w-4 h-4 animate-spin"/> : null}
+               {navigating ? "Saving..." : "Next Step"}
+               {!navigating && <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />}
+             </button>
+           ) : (
+             <button 
+               onClick={handleFinish}
+               className="flex items-center gap-2 px-8 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-lg shadow-emerald-500/20 transition-all hover:scale-105 active:scale-95"
+             >
+               View Results Dashboard
+               <LayoutDashboard className="w-4 h-4" />
+             </button>
+           )}
         </div>
       </div>
+
     </div>
   );
 }

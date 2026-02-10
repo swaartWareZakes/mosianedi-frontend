@@ -80,7 +80,7 @@ export function RunSimulationCard({ projectId }: { projectId: string }) {
                         className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm px-3 py-2.5 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none appearance-none cursor-pointer"
                     >
                         {/* Generate next 5 years dynamically */}
-                        {Array.from({ length: 5 }).map((_, i) => {
+                        {Array.from({ length: 50 }).map((_, i) => {
                             const year = baseYear + i;
                             return <option key={year} value={year}>FY {year} / {year + 1}</option>;
                         })}
