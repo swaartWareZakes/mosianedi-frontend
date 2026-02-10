@@ -27,7 +27,7 @@ export function AiStrategyCard({ analysis, loading, error, onGenerate }: Props) 
             Unlock Strategic Insights
           </h2>
           <p className="text-sm text-slate-500 max-w-md mx-auto">
-            Ready to finalize your strategy? Ask the <strong>Mosianedi AI</strong> to synthesize your simulation results into a formal Treasury motivation.
+            Ready to finalize your strategy? Ask the <strong>Mosianedi AI</strong> to synthesize your simulation results into a formal motivation.
           </p>
           
           {error && <div className="text-xs text-rose-500">{error}</div>}

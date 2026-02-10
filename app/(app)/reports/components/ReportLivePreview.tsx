@@ -125,7 +125,7 @@ export default function ReportLivePreview({ config, previewRef }: ReportLivePrev
                 </div>
              </div>
              <div className="w-2/3 space-y-4 text-sm leading-relaxed text-slate-600">
-                <h3 className="font-bold text-slate-900 border-b pb-2 mb-2">Treasury Motivation</h3>
+                <h3 className="font-bold text-slate-900 border-b pb-2 mb-2">Motivation</h3>
                 <p>{narrative.executiveSummary}</p>
                 <div className="p-4 bg-rose-50 border border-rose-100 rounded-lg text-rose-800 text-xs font-medium flex gap-3">
                     <AlertTriangle className="w-4 h-4 shrink-0"/>
