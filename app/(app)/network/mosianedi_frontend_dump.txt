@@ -1,0 +1,1201 @@
+\n--- ./components/NetworkInspector.tsx ---\n
+"use client";
+
+import React, { useState, useMemo, useEffect } from "react";
+import { Play, Settings2, Truck, Package, Scale, X, FileText, CheckCircle2, AlertTriangle, RefreshCw, CloudRain, Sun, Gauge, Layers } from "lucide-react";
+import dynamic from "next/dynamic";
+import type { CargoType, WeatherType } from "./RealModel3D"; 
+
+// Dynamic import to prevent SSR issues with Canvas
+const RoadModel3D = dynamic(() => import("./RealModel3D"), { ssr: false });
+
+interface InspectorProps {
+    selectedSegment: {
+        iri: number;
+        width: number;
+        surface: "paved" | "gravel";
+        name: string;
+    } | null;
+    province?: string;
+}
+
+// --- SUB-COMPONENT: THE FEEDBACK REPORT ---
+function SimulationReport({ iri, cargoType, cargoWeight, onClose, onReplay, weather, speedLimit }: any) {
+    
+    // 1. RISK CALCULATION ENGINE
+    // This logic takes the physical data and calculates "Integrity Loss"
+    const isBadRoad = iri > 4.5;
+    const isWet = weather === "rain";
+    const isSpeeding = speedLimit > 80;
+    
+    let riskScore = (iri / 10) * 30; // Base risk from road condition
+    if (isWet) riskScore += 15;      // Weather penalty
+    if (isSpeeding) riskScore += 20; // Speed penalty
+    if (isBadRoad && isSpeeding) riskScore += 20; // Compound risk multiplier
+
+    const integrity = Math.max(0, 100 - riskScore);
+    const passed = integrity > 70;
+    const statusColor = passed ? "emerald" : "rose";
+
+    // Financial Calc
+    const cargoValue = cargoType === "electronics" ? 1500000 : 500000;
+    const loss = passed ? 0 : cargoValue * ((100 - integrity) / 100);
+
+    return (
+        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="bg-white dark:bg-slate-950 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
+                <div className="p-6 text-center border-b border-slate-100 dark:border-slate-800">
+                    <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 ${passed ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                        {passed ? <CheckCircle2 className="w-8 h-8" /> : <AlertTriangle className="w-8 h-8" />}
+                    </div>
+                    <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                        {passed ? "Transport Successful" : "Cargo Damage Detected"}
+                    </h2>
+                    <p className="text-sm text-slate-500 mt-1">
+                        Run completed on <strong>{isBadRoad ? "Poor" : "Good"} Surface</strong>
+                    </p>
+                </div>
+
+                <div className="p-6 space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-lg text-center">
+                            <div className="text-[10px] uppercase font-bold text-slate-500">Integrity</div>
+                            <div className={`text-xl font-mono font-bold text-${statusColor}-500`}>{integrity.toFixed(0)}%</div>
+                        </div>
+                        <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-lg text-center">
+                            <div className="text-[10px] uppercase font-bold text-slate-500">Financial Loss</div>
+                            <div className="text-xl font-mono font-bold text-slate-900 dark:text-white">
+                                {loss.toLocaleString('en-ZA', { style: 'currency', currency: 'ZAR', maximumFractionDigits: 0 })}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="text-xs text-slate-500 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
+                        <strong>Analysis:</strong> {passed 
+                            ? "Vehicle suspension absorbed road imperfections. Cargo arrived intact." 
+                            : `Severe vibration detected due to IRI ${iri.toFixed(1)} and ${speedLimit}km/h speed. Reduce speed on this segment.`}
+                    </div>
+                </div>
+
+                <div className="p-4 bg-slate-50 dark:bg-slate-900/50 flex gap-3">
+                    <button onClick={onReplay} className="flex-1 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50">
+                        Replay
+                    </button>
+                    <button onClick={onClose} className="flex-1 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700">
+                        Dismiss
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// --- MAIN INSPECTOR COMPONENT ---
+export function NetworkInspector({ selectedSegment, province = "Gauteng" }: InspectorProps) {
+  const [isDriving, setIsDriving] = useState(false);
+  const [showReport, setShowReport] = useState(false);
+  
+  // Inputs
+  const [cargoType, setCargoType] = useState<CargoType>("electronics");
+  const [cargoWeight, setCargoWeight] = useState(20);
+  const [weather, setWeather] = useState<WeatherType>("sunny");
+  const [speedLimit, setSpeedLimit] = useState(100);
+
+  // Defaults if nothing selected
+  const activeSurface = selectedSegment?.surface || "paved";
+  const startIRI = selectedSegment?.iri || 2.5; 
+  const roadWidth = selectedSegment?.width || 8;
+  const roadName = selectedSegment?.name || "Select a road to start";
+
+  return (
+    <div className="flex flex-col h-full bg-[var(--surface-bg)] border-l border-slate-200 dark:border-slate-800 relative">
+        
+        {/* REPORT OVERLAY */}
+        {showReport && (
+            <SimulationReport 
+                iri={startIRI} 
+                cargoType={cargoType} 
+                cargoWeight={cargoWeight} 
+                weather={weather}
+                speedLimit={speedLimit}
+                onClose={() => setShowReport(false)}
+                onReplay={() => { setShowReport(false); setIsDriving(true); }}
+            />
+        )}
+
+        {/* HEADER */}
+        <div className="px-5 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 flex justify-between items-center shrink-0">
+            <div>
+                <h3 className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Active Asset</h3>
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate max-w-[200px]" title={roadName}>{roadName}</p>
+            </div>
+            <button 
+                onClick={() => setIsDriving(true)}
+                disabled={isDriving || !selectedSegment}
+                className={`text-xs flex items-center gap-2 px-4 py-2 rounded-full font-bold border transition-all shadow-sm ${isDriving ? 'bg-emerald-500 text-white border-emerald-500 cursor-wait' : 'bg-slate-900 text-white hover:bg-slate-800 border-transparent'}`}
+            >
+                <Truck className="w-3 h-3" />
+                {isDriving ? "Simulating..." : "Test Drive"}
+            </button>
+        </div>
+
+        {/* 3D VIEWPORT (Top 55%) */}
+        <div className="h-[55%] relative border-b border-slate-200 dark:border-slate-800 bg-slate-900 overflow-hidden group">
+            <RoadModel3D 
+                width={roadWidth} 
+                iri={startIRI} 
+                surface={activeSurface} 
+                isDriving={isDriving}
+                onDriveComplete={() => { setIsDriving(false); setShowReport(true); }}
+                province={province}
+                cargoType={cargoType}
+                cargoWeight={cargoWeight}
+                weather={weather}
+                speedLimit={speedLimit}
+            />
+        </div>
+
+        {/* CONTROLS (Bottom 45%) */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-5 bg-[var(--surface-bg)]">
+            <div className="space-y-3">
+                <h3 className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                    <Settings2 className="w-3 h-3 text-slate-400"/> Drive Parameters
+                </h3>
+                
+                <div className="grid grid-cols-2 gap-3">
+                    {/* Weather Toggle */}
+                    <div className="space-y-1">
+                        <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1"><CloudRain className="w-3 h-3"/> Weather</label>
+                        <div className="flex rounded border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900">
+                            <button onClick={() => setWeather("sunny")} className={`flex-1 py-1.5 flex justify-center transition-colors ${weather === 'sunny' ? 'bg-amber-100 text-amber-600' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}><Sun className="w-3.5 h-3.5" /></button>
+                            <div className="w-px bg-slate-200 dark:bg-slate-700"></div>
+                            <button onClick={() => setWeather("rain")} className={`flex-1 py-1.5 flex justify-center transition-colors ${weather === 'rain' ? 'bg-cyan-100 text-cyan-600' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}><CloudRain className="w-3.5 h-3.5" /></button>
+                        </div>
+                    </div>
+
+                    {/* Speed Limit */}
+                    <div className="space-y-1">
+                        <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1"><Gauge className="w-3 h-3"/> Speed</label>
+                        <select value={speedLimit} onChange={(e) => setSpeedLimit(Number(e.target.value))} className="w-full text-xs p-2 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-1 focus:ring-indigo-500 outline-none appearance-none">
+                            <option value={60}>60 km/h</option>
+                            <option value={80}>80 km/h</option>
+                            <option value={100}>100 km/h</option>
+                            <option value={120}>120 km/h</option>
+                        </select>
+                    </div>
+
+                    {/* Cargo Type */}
+                    <div className="space-y-1 col-span-2">
+                         <label className="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1"><Package className="w-3 h-3"/> Cargo</label>
+                         <select value={cargoType} onChange={(e) => setCargoType(e.target.value as any)} className="w-full text-xs p-2 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-1 focus:ring-indigo-500 outline-none appearance-none">
+                            <option value="electronics">Electronics (High Value, Fragile)</option>
+                            <option value="produce">Fresh Produce (Standard)</option>
+                            <option value="bricks">Construction Materials (Heavy)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-800 text-[10px] text-slate-500 leading-relaxed">
+                <strong className="text-slate-700 dark:text-slate-300">Simulation Logic:</strong> Using <strong>{activeSurface}</strong> physics model. 
+                Current IRI is <strong>{startIRI.toFixed(1)}</strong>. Higher speeds and rain will increase instability.
+            </div>
+        </div>
+    </div>
+  );
+}\n--- ./components/NetworkProjectSelector.tsx ---\n
+// app/(app)/network/components/NetworkProjectSelector.tsx
+"use client";
+
+import React from "react";
+import { AlertTriangle, RefreshCw } from "lucide-react";
+
+type Project = {
+  id: string;
+  project_name: string;
+  description?: string | null;
+  start_year?: number | null;
+  forecast_duration?: number | null;
+  discount_rate?: number | null;
+};
+
+type Props = {
+  projects: Project[];
+  projectsLoading: boolean;
+  projectsError: string | null;
+  selectedProjectId: string;
+  onSelectedProjectChange: (id: string) => void;
+  snapshotLoading: boolean;
+  onRefreshSnapshot: () => void;
+  selectedProject: Project | null;
+};
+
+export function NetworkProjectSelector({
+  projects,
+  projectsLoading,
+  projectsError,
+  selectedProjectId,
+  onSelectedProjectChange,
+  snapshotLoading,
+  onRefreshSnapshot,
+  selectedProject,
+}: Props) {
+  return (
+    <section className="p-4 rounded-2xl bg-[var(--surface-bg)] shadow-sm border border-slate-200/10 dark:border-slate-800/40 space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Project
+          </p>
+          <p className="text-sm font-medium">
+            {selectedProject ? selectedProject.project_name : "Select a project"}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <select
+            value={selectedProjectId}
+            onChange={(e) => onSelectedProjectChange(e.target.value)}
+            disabled={projectsLoading || projects.length === 0}
+            className="min-w-[220px] rounded-lg border border-slate-300/60 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40 px-2.5 py-1.5 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500"
+          >
+            <option value="" disabled>
+              {projectsLoading
+                ? "Loading projects…"
+                : projects.length === 0
+                ? "No projects found"
+                : "Select project"}
+            </option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.project_name}
+              </option>
+            ))}
+          </select>
+
+          <button
+            type="button"
+            onClick={onRefreshSnapshot}
+            disabled={!selectedProjectId || snapshotLoading}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 px-2.5 py-1 text-[11px] font-medium text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/60 disabled:opacity-60"
+          >
+            <RefreshCw className="h-3 w-3" />
+            {snapshotLoading ? "Refreshing…" : "Refresh snapshot"}
+          </button>
+        </div>
+      </div>
+
+      {projectsError && (
+        <p className="text-xs text-red-500 flex items-center gap-1">
+          <AlertTriangle className="h-3 w-3" />
+          {projectsError}
+        </p>
+      )}
+
+      {selectedProject && (
+        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+          {selectedProject.description && (
+            <>
+              <span className="font-medium">Overview:</span>{" "}
+              {selectedProject.description}{" "}
+            </>
+          )}
+          {(selectedProject.start_year || selectedProject.forecast_duration) && (
+            <>
+              |
+              {selectedProject.start_year && (
+                <> Start year: {selectedProject.start_year}</>
+              )}
+              {selectedProject.forecast_duration && (
+                <> • Horizon: {selectedProject.forecast_duration} years</>
+              )}
+            </>
+          )}
+        </p>
+      )}
+    </section>
+  );
+}\n--- ./components/NetworkBreakdowns.tsx ---\n
+"use client";
+
+import React from "react";
+import { Layers, Coins } from "lucide-react";
+// 👇 Import the NEW type we defined in the hook
+import type { NetworkProfile } from "../../projects/[projectId]/config/hooks/useNetworkSnapshot";
+
+type Props = {
+  snapshot: NetworkProfile | null;
+};
+
+// Helper to format large currency numbers
+function fmtMoney(val: number) {
+  if (val >= 1_000_000_000) return `R ${(val / 1_000_000_000).toFixed(1)} bn`;
+  if (val >= 1_000_000) return `R ${(val / 1_000_000).toFixed(1)} m`;
+  return `R ${val.toLocaleString()}`;
+}
+
+export function NetworkBreakdowns({ snapshot }: Props) {
+  if (!snapshot) return null;
+
+  const totalKm = snapshot.totalLengthKm || 1; // Avoid divide by zero
+  
+  // 1. Calculate Length Percentages
+  const pavedPct = (snapshot.pavedLengthKm / totalKm) * 100;
+  const gravelPct = (snapshot.gravelLengthKm / totalKm) * 100;
+
+  // 2. Estimate Value Split (Replicating Backend Logic for Visualization)
+  // Rates: Paved ~R3.5m/km, Gravel ~R0.25m/km
+  const estimatedPavedVal = snapshot.pavedLengthKm * 3_500_000;
+  const estimatedGravelVal = snapshot.gravelLengthKm * 250_000;
+  const totalEstVal = estimatedPavedVal + estimatedGravelVal || 1;
+
+  const pavedValPct = (estimatedPavedVal / totalEstVal) * 100;
+  const gravelValPct = (estimatedGravelVal / totalEstVal) * 100;
+
+  return (
+    <div className="space-y-6">
+      
+      {/* CARD 1: Surface Composition (Physical Length) */}
+      <div className="p-6 bg-[var(--surface-bg)] rounded-2xl shadow-lg border border-slate-200/10 dark:border-slate-800/10 space-y-4">
+        <h2 className="text-sm font-semibold flex items-center gap-2 text-slate-700 dark:text-slate-200">
+          <Layers className="h-4 w-4 text-indigo-500" />
+          Network Composition
+        </h2>
+        
+        {/* Visual Bar */}
+        <div className="h-2 w-full flex rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800">
+          <div className="h-full bg-indigo-500" style={{ width: `${pavedPct}%` }} />
+          <div className="h-full bg-amber-500" style={{ width: `${gravelPct}%` }} />
+        </div>
+
+        <div className="space-y-3 pt-2">
+          {/* Paved Row */}
+          <div>
+            <div className="flex justify-between items-center text-xs mb-1">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-indigo-500" />
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Paved</span>
+              </div>
+              <span className="font-mono text-slate-700 dark:text-slate-200">
+                {snapshot.pavedLengthKm.toLocaleString()} km
+              </span>
+            </div>
+            <div className="text-[10px] text-slate-400 pl-4">
+              {pavedPct.toFixed(1)}% of network length
+            </div>
+          </div>
+
+          {/* Gravel Row */}
+          <div>
+             <div className="flex justify-between items-center text-xs mb-1">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-500" />
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Gravel</span>
+              </div>
+              <span className="font-mono text-slate-700 dark:text-slate-200">
+                {snapshot.gravelLengthKm.toLocaleString()} km
+              </span>
+            </div>
+            <div className="text-[10px] text-slate-400 pl-4">
+              {gravelPct.toFixed(1)}% of network length
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* CARD 2: Asset Value Distribution (Financial Weight) */}
+      <div className="p-6 bg-[var(--surface-bg)] rounded-2xl shadow-lg border border-slate-200/10 dark:border-slate-800/10 space-y-4">
+        <h2 className="text-sm font-semibold flex items-center gap-2 text-slate-700 dark:text-slate-200">
+          <Coins className="h-4 w-4 text-emerald-500" />
+          Asset Value Distribution
+        </h2>
+        
+        {/* Visual Bar */}
+        <div className="h-2 w-full flex rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800">
+          <div className="h-full bg-emerald-500" style={{ width: `${pavedValPct}%` }} />
+          <div className="h-full bg-amber-500/50" style={{ width: `${gravelValPct}%` }} />
+        </div>
+
+        <div className="space-y-3 pt-2">
+           {/* Paved Value Row */}
+           <div>
+            <div className="flex justify-between items-center text-xs mb-1">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Paved Assets</span>
+              </div>
+              <span className="font-mono text-slate-700 dark:text-slate-200 font-semibold">
+                {fmtMoney(estimatedPavedVal)}
+              </span>
+            </div>
+            <div className="text-[10px] text-slate-400 pl-4">
+               Holds {pavedValPct.toFixed(0)}% of total value
+            </div>
+          </div>
+
+          {/* Gravel Value Row */}
+          <div>
+            <div className="flex justify-between items-center text-xs mb-1">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-500/50" />
+                <span className="text-slate-500 dark:text-slate-400 font-medium">Gravel Assets</span>
+              </div>
+              <span className="font-mono text-slate-700 dark:text-slate-200 font-semibold">
+                {fmtMoney(estimatedGravelVal)}
+              </span>
+            </div>
+            <div className="text-[10px] text-slate-400 pl-4">
+               Holds {gravelValPct.toFixed(0)}% of total value
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  );
+}\n--- ./components/RealModel3D.tsx ---\n
+"use client";
+
+import React, { useMemo, useRef, useState, Suspense, useEffect } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { OrbitControls, Sky, PerspectiveCamera, Cloud, useGLTF } from "@react-three/drei";
+import * as THREE from "three";
+
+// --- Types ---
+type SurfaceType = "paved" | "gravel";
+export type CargoType = "electronics" | "bricks" | "produce";
+export type WeatherType = "sunny" | "rain";
+
+interface ModelProps {
+  width?: number;
+  iri?: number;
+  surface?: SurfaceType;
+  showLayers?: boolean;
+  isDriving?: boolean;
+  onDriveComplete?: () => void;
+  province?: string;
+  cargoWeight?: number;
+  cargoType?: CargoType;
+  weather?: WeatherType;
+  speedLimit?: number;
+}
+
+// --- 1. ASSET PAINTING HELPER (Fixes the Grey/Funky look) ---
+function cloneAndPaint(scene: THREE.Group, type: string) {
+    const clone = scene.clone(true);
+    
+    clone.traverse((child: any) => {
+        if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+
+            // Apply generic materials based on object type
+            if (type.includes("road")) {
+                if (type === "road-gravel") {
+                    child.material = new THREE.MeshStandardMaterial({ color: "#a16207", roughness: 1 }); // Brown Dirt
+                } else {
+                    child.material = new THREE.MeshStandardMaterial({ color: "#1e293b", roughness: 0.8 }); // Dark Asphalt
+                }
+            }
+            if (type === "tree") {
+                // Simple logic: if mesh is tall/top, it's leaves (green), else trunk (brown)
+                // Since we can't know for sure, we color it all generic dark green for low-poly look
+                child.material = new THREE.MeshStandardMaterial({ color: "#166534", roughness: 0.8 }); 
+            }
+            if (type === "barrier") {
+                child.material = new THREE.MeshStandardMaterial({ color: "#cbd5e1", metalness: 0.5, roughness: 0.2 }); // Metal
+            }
+            if (type === "truck") {
+                // Try to preserve existing texture if it exists, otherwise default to White Truck
+                if (!child.material.map) {
+                     child.material = new THREE.MeshStandardMaterial({ color: "#f8fafc", roughness: 0.2, metalness: 0.1 });
+                }
+            }
+        }
+    });
+    return clone;
+}
+
+// --- SUB-COMPONENT: RAIN SYSTEM ---
+function RainSystem({ active }: { active: boolean }) {
+  const count = 3000;
+  const positions = useMemo(() => {
+    const pos = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      pos[i * 3] = (Math.random() - 0.5) * 100;
+      pos[i * 3 + 1] = Math.random() * 40;
+      pos[i * 3 + 2] = (Math.random() - 0.5) * 100;
+    }
+    return pos;
+  }, []);
+
+  const ref = useRef<THREE.Points>(null);
+
+  useFrame((_, delta) => {
+    if (!active || !ref.current) return;
+    const posAttribute = ref.current.geometry.getAttribute("position") as THREE.BufferAttribute;
+    const array = posAttribute.array as Float32Array;
+    for (let i = 0; i < count; i++) {
+      array[i * 3 + 1] -= 25 * delta;
+      if (array[i * 3 + 1] < 0) array[i * 3 + 1] = 40;
+    }
+    posAttribute.needsUpdate = true;
+  });
+
+  return (
+    <points ref={ref} visible={active}>
+      <bufferGeometry><bufferAttribute attach="attributes-position" args={[positions, 3]} /></bufferGeometry>
+      <pointsMaterial color="#a5f3fc" size={0.15} transparent opacity={0.6} sizeAttenuation depthWrite={false} />
+    </points>
+  );
+}
+
+// --- SUB-COMPONENT: CHASE CAMERA ---
+function ChaseCamera({ targetRef, iri }: { targetRef: React.MutableRefObject<THREE.Group>; iri: number }) {
+  const { camera } = useThree();
+  const vec = new THREE.Vector3();
+
+  useFrame((state) => {
+    if (!targetRef.current) return;
+    const truckPos = targetRef.current.position;
+    const targetCamPos = new THREE.Vector3(0, 6, truckPos.z - 16); // Higher and further back
+    const lookAtPos = new THREE.Vector3(0, 1, truckPos.z + 15);
+
+    const time = state.clock.getElapsedTime();
+    const shakeIntensity = (Math.max(0, iri - 2) / 10) * 0.3; 
+
+    const noiseX = Math.sin(time * 20) * shakeIntensity;
+    const noiseY = Math.cos(time * 25) * shakeIntensity;
+
+    vec.copy(targetCamPos).add(new THREE.Vector3(noiseX, noiseY, 0));
+    camera.position.lerp(vec, 0.1);
+    camera.lookAt(lookAtPos);
+  });
+
+  return null;
+}
+
+// --- SUB-COMPONENT: TRUCK ---
+function TruckModel({ isDriving, iri, onComplete, sharedRef, weather, speedLimit }: any) {
+  const { scene } = useGLTF("/models/truck.glb");
+  const model = useMemo(() => cloneAndPaint(scene, "truck"), [scene]);
+  
+  const baseSpeed = (speedLimit || 80) / 3.6; 
+  const weatherPenalty = weather === "rain" ? 0.8 : 1.0;
+  const currentSpeed = Math.min(40, baseSpeed * weatherPenalty); 
+  const maxDistance = 300; 
+
+  useFrame((state, delta) => {
+    if (!sharedRef.current) return;
+    const group = sharedRef.current;
+
+    if (isDriving) {
+      group.position.z += currentSpeed * delta;
+      const time = state.clock.getElapsedTime();
+      const bounceAmplitude = (iri / 10) * 0.25; 
+      
+      const yBounce = Math.sin(time * 15) * bounceAmplitude + Math.cos(time * 40) * (bounceAmplitude * 0.5);
+      group.position.y = yBounce;
+      group.rotation.z = Math.sin(time * 10) * (bounceAmplitude * 0.5); 
+
+      if (group.position.z > maxDistance) onComplete();
+    } else {
+      group.position.z = -20;
+      group.position.y = 0;
+      group.rotation.set(0, Math.PI, 0); 
+    }
+  });
+
+  return (
+    <primitive 
+        ref={sharedRef} 
+        object={model} 
+        position={[0, 0, -20]} 
+        rotation={[0, Math.PI, 0]} 
+        scale={[1.5, 1.5, 1.5]} 
+    />
+  );
+}
+
+// --- SUB-COMPONENT: ENVIRONMENT ASSETS ---
+function RoadSegment({ position, type }: { position: [number, number, number], type: "good" | "bad" | "gravel" }) {
+    const good = useGLTF("/models/road-good.glb");
+    const bad = useGLTF("/models/road-bad.glb");
+    const gravel = useGLTF("/models/road-gravel.glb");
+    
+    // Select model and Paint it
+    const source = type === "gravel" ? gravel.scene : type === "bad" ? bad.scene : good.scene;
+    const model = useMemo(() => cloneAndPaint(source, type === "gravel" ? "road-gravel" : "road"), [source, type]);
+
+    // Add stripe markings manually if it's paved
+    return (
+        <group position={position}>
+            <primitive object={model} scale={[3.5, 1, 4]} />
+            {type !== "gravel" && (
+                <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
+                    <planeGeometry args={[0.2, 8]} />
+                    <meshBasicMaterial color="white" />
+                </mesh>
+            )}
+        </group>
+    );
+}
+
+function Scenery({ position, type }: { position: [number, number, number], type: "tree" | "barrier" }) {
+    const tree = useGLTF("/models/tree.glb");
+    const barrier = useGLTF("/models/barrier.glb");
+    const source = type === "tree" ? tree.scene : barrier.scene;
+    const model = useMemo(() => cloneAndPaint(source, type), [source, type]);
+
+    return <primitive object={model} position={position} scale={[1.5, 1.5, 1.5]} />;
+}
+
+// --- MAIN SCENE ---
+export default function RealModel3D({
+  iri = 2.0,
+  surface = "paved",
+  isDriving = false,
+  onDriveComplete,
+  weather = "sunny",
+  speedLimit = 100,
+}: ModelProps) {
+  
+  const truckRef = useRef<THREE.Group>(null!);
+  const roadType = surface === "gravel" ? "gravel" : (iri > 4.5 ? "bad" : "good");
+
+  return (
+    <div className="h-full w-full bg-slate-900 relative rounded-xl overflow-hidden shadow-2xl">
+      <Canvas shadows dpr={[1, 1.5]} gl={{ antialias: true }}>
+        <color attach="background" args={["#87CEEB"]} /> {/* Sky Blue Background */}
+        
+        <PerspectiveCamera makeDefault position={[10, 8, -30]} fov={50} />
+
+        <Sky sunPosition={weather === "rain" ? [0, 10, -100] : [100, 20, 100]} />
+        <ambientLight intensity={weather === "rain" ? 0.4 : 0.8} />
+        <directionalLight position={[50, 50, 25]} intensity={1.5} castShadow />
+        
+        {weather === "rain" && <Cloud opacity={0.5} position={[0, 20, 0]} />}
+        <RainSystem active={weather === "rain"} />
+
+        {/* --- INFINITE ROAD GENERATION --- */}
+        {Array.from({ length: 25 }).map((_, i) => (
+          <group key={i} position={[0, 0, i * 25 - 60]}>
+            <RoadSegment position={[0, 0, 0]} type={roadType} />
+            {i % 2 === 0 && <Scenery position={[-8, 0, 0]} type="tree" />}
+            {i % 3 === 0 && <Scenery position={[6, 0, 0]} type="barrier" />}
+          </group>
+        ))}
+
+        <TruckModel 
+            sharedRef={truckRef}
+            isDriving={isDriving}
+            iri={iri}
+            onComplete={onDriveComplete}
+            weather={weather}
+            speedLimit={speedLimit}
+        />
+
+        {isDriving ? (
+          <ChaseCamera targetRef={truckRef} iri={iri} />
+        ) : (
+          <OrbitControls minPolarAngle={0} maxPolarAngle={Math.PI / 2.1} />
+        )}
+
+        {/* Ground Plane (Better Grass) */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.5, 0]} receiveShadow>
+            <planeGeometry args={[1000, 1000]} />
+            <meshStandardMaterial color="#4ade80" roughness={1} />
+        </mesh>
+
+      </Canvas>
+    </div>
+  );
+}\n--- ./components/LiveMap.tsx ---\n
+"use client";
+
+import React, { useEffect, useMemo } from "react";
+import { MapContainer, TileLayer, useMap } from "react-leaflet";
+import L from "leaflet"; // Corrected import
+
+// @ts-ignore
+import "leaflet/dist/leaflet.css";
+
+// --- PROVINCE CONFIG ---
+const PROVINCE_CONFIG: Record<string, { center: [number, number], zoom: number }> = {
+    "Gauteng": { center: [-26.1076, 28.0567], zoom: 10 },
+    "Free State": { center: [-28.4793, 26.1008], zoom: 8 },
+    "Western Cape": { center: [-33.2278, 21.8569], zoom: 8 },
+    "KwaZulu-Natal": { center: [-29.0, 30.0], zoom: 8 },
+    "Eastern Cape": { center: [-32.2968, 26.4194], zoom: 8 },
+    "Limpopo": { center: [-23.4013, 29.4179], zoom: 8 },
+    "Mpumalanga": { center: [-25.5656, 30.5279], zoom: 8 },
+    "North West": { center: [-26.6639, 25.2838], zoom: 8 },
+    "Northern Cape": { center: [-29.0467, 21.8569], zoom: 7 },
+};
+
+const DEFAULT_CONFIG = PROVINCE_CONFIG["Gauteng"];
+
+// --- CONTROLLER ---
+function MapController({ provinceCenter, zoom }: { provinceCenter: [number, number], zoom: number }) {
+    const map = useMap();
+    useEffect(() => {
+        if (provinceCenter) {
+             map.flyTo(provinceCenter, zoom, { duration: 2.0 });
+        }
+    }, [provinceCenter, zoom, map]);
+    return null;
+}
+
+interface LiveMapProps {
+    province?: string; 
+    onSegmentSelect?: (segment: any) => void; // Optional to prevent type errors
+    theme?: "light" | "dark";
+}
+
+export default function LiveMap({ province = "Gauteng", theme = "dark" }: LiveMapProps) {
+  
+  const activeConfig = useMemo(() => {
+      const key = Object.keys(PROVINCE_CONFIG).find(k => k.toLowerCase().includes(province.toLowerCase()));
+      return PROVINCE_CONFIG[key || "Gauteng"] || DEFAULT_CONFIG;
+  }, [province]);
+
+  // Use the theme to determine the tile layer
+  const tileUrl = theme === "light" 
+    ? "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+    : "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+
+  return (
+    <div className="w-full h-full relative z-0 group">
+      <MapContainer 
+        center={activeConfig.center} 
+        zoom={activeConfig.zoom} 
+        style={{ height: "100%", width: "100%" }}
+        zoomControl={false}
+      >
+        <TileLayer attribution='&copy; OpenStreetMap' url={tileUrl} />
+        <MapController provinceCenter={activeConfig.center} zoom={activeConfig.zoom} />
+      </MapContainer>
+      
+      <div className="absolute top-6 left-6 z-[1000] bg-black/60 backdrop-blur px-4 py-2 rounded-lg border border-white/10 text-white">
+          <div className="text-[10px] uppercase font-bold text-slate-400">Viewing Region</div>
+          <div className="text-sm font-bold">{province}</div>
+      </div>
+    </div>
+  );
+}\n--- ./components/NetworkSnapshotSummary.tsx ---\n
+"use client";
+
+import React from "react";
+import { AlertTriangle, Map, TrendingUp, Coins, Activity } from "lucide-react";
+import type { NetworkProfile } from "../../projects/[projectId]/config/hooks/useNetworkSnapshot";
+
+type SummaryProps = {
+  snapshot: NetworkProfile | null;
+  loading: boolean;
+  error: string | null;
+};
+
+function fmtCurrency(val: number) {
+  if (val >= 1_000_000_000) return `R ${(val / 1_000_000_000).toFixed(1)} bn`;
+  if (val >= 1_000_000) return `R ${(val / 1_000_000).toFixed(1)} m`;
+  return `R ${val.toLocaleString()}`;
+}
+
+export function NetworkSnapshotSummary({ snapshot, loading, error }: SummaryProps) {
+  if (loading) {
+    return (
+      <div className="h-28 flex items-center justify-center text-sm text-slate-400 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-dashed border-slate-200">
+        Loading network profile...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 bg-rose-50 text-rose-600 rounded-xl border border-rose-200 flex items-center gap-2 text-sm">
+        <AlertTriangle className="h-4 w-4" />
+        {error}
+      </div>
+    );
+  }
+
+  if (!snapshot) return null;
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      
+      {/* Total Network */}
+      <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-hover hover:shadow-md">
+        <div className="flex items-center gap-2 text-slate-500 mb-2">
+          <Map className="w-4 h-4" />
+          <span className="text-[10px] font-bold uppercase tracking-wider">Total Network</span>
+        </div>
+        <div className="text-xl font-bold">
+          {snapshot.totalLengthKm.toLocaleString()} <span className="text-xs font-normal text-slate-500">km</span>
+        </div>
+        <div className="text-[10px] text-slate-400 mt-1 truncate">
+           {snapshot.pavedLengthKm.toLocaleString()} Paved • {snapshot.gravelLengthKm.toLocaleString()} Gravel
+        </div>
+      </div>
+
+      {/* Asset Value */}
+      <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-hover hover:shadow-md">
+        <div className="flex items-center gap-2 text-slate-500 mb-2">
+          <Coins className="w-4 h-4 text-emerald-500" />
+          <span className="text-[10px] font-bold uppercase tracking-wider">Asset Value</span>
+        </div>
+        <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
+          {fmtCurrency(snapshot.assetValue)}
+        </div>
+         <div className="text-[10px] text-slate-400 mt-1">Current Replacement Cost</div>
+      </div>
+
+      {/* Condition */}
+      <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-hover hover:shadow-md">
+        <div className="flex items-center gap-2 text-slate-500 mb-2">
+          <Activity className="w-4 h-4 text-indigo-500" />
+          <span className="text-[10px] font-bold uppercase tracking-wider">Condition (VCI)</span>
+        </div>
+        <div className="flex items-baseline gap-2">
+            <div className="text-xl font-bold">{snapshot.avgVci.toFixed(1)}</div>
+            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${snapshot.avgVci < 50 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                {snapshot.avgVci < 50 ? 'POOR' : 'FAIR/GOOD'}
+            </span>
+        </div>
+         <div className="w-full bg-slate-100 dark:bg-slate-800 h-1 rounded-full mt-2 overflow-hidden">
+             <div className={`h-full ${snapshot.avgVci < 50 ? 'bg-rose-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min(snapshot.avgVci, 100)}%`}} />
+         </div>
+      </div>
+
+       {/* Traffic */}
+       <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-hover hover:shadow-md">
+        <div className="flex items-center gap-2 text-slate-500 mb-2">
+          <TrendingUp className="w-4 h-4 text-amber-500" />
+          <span className="text-[10px] font-bold uppercase tracking-wider">Traffic Load</span>
+        </div>
+        <div className="text-xl font-bold">
+          {(snapshot.totalVehicleKm / 1_000_000).toFixed(1)} <span className="text-xs font-normal text-slate-500">m</span>
+        </div>
+         <div className="text-[10px] text-slate-400 mt-1">Annual Vehicle Km</div>
+      </div>
+
+    </div>
+  );
+}\n--- ./inventory/page.tsx ---\n
+"use client";
+
+import React, { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
+import { supabase } from "@/lib/supabaseClient";
+import { FileText, Map as MapIcon, Database, Activity, Info } from "lucide-react";
+import { useNetworkSnapshot } from "../../projects/[projectId]/config/hooks/useNetworkSnapshot";
+import { NetworkProjectSelector } from "../components/NetworkProjectSelector";
+import { NetworkSnapshotSummary } from "../components/NetworkSnapshotSummary";
+import { NetworkBreakdowns } from "../components/NetworkBreakdowns";
+
+const LiveMap = dynamic(() => import("../components/LiveMap"), { ssr: false });
+const API_BASE = process.env.NEXT_PUBLIC_API_URL;
+
+export default function InventoryPage() {
+  const [projects, setProjects] = useState<any[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const [proposalInputs, setProposalInputs] = useState<any>(null);
+
+  useEffect(() => {
+    async function getProjects() {
+      const { data } = await supabase.from("projects").select("*");
+      if (data) setProjects(data);
+    }
+    getProjects();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedProjectId) return;
+    async function fetchInputs() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch(`${API_BASE}/api/v1/projects/${selectedProjectId}/proposal-data`, {
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      });
+      if (res.ok) setProposalInputs(await res.json());
+    }
+    fetchInputs();
+  }, [selectedProjectId]);
+
+  const { data: snapshot, loading: snapLoading, error: snapshotError, refetch } = useNetworkSnapshot(selectedProjectId);
+  const selectedProject = projects.find(p => p.id === selectedProjectId);
+
+  return (
+    <div className="h-full flex flex-col bg-slate-50 dark:bg-slate-950 overflow-hidden text-slate-900 dark:text-white">
+      {/* 1. TOP SECTION (KPIs) */}
+      <div className="p-6 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm z-20">
+        <div className="flex flex-col xl:flex-row gap-6 items-start">
+          <div className="w-full xl:w-1/3">
+             <NetworkProjectSelector 
+                projects={projects} 
+                selectedProjectId={selectedProjectId} 
+                onSelectedProjectChange={setSelectedProjectId}
+                onRefreshSnapshot={refetch}
+                snapshotLoading={snapLoading}
+                selectedProject={selectedProject}
+                projectsLoading={false}
+                projectsError={null}
+              />
+          </div>
+          <div className="flex-1 w-full">
+            <NetworkSnapshotSummary snapshot={snapshot} loading={snapLoading} error={snapshotError} />
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+        {/* LEFT: COMPOSITION & BASELINE */}
+        <div className="w-full lg:w-[400px] border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-y-auto p-6 space-y-6">
+          <div className="space-y-2">
+            <h3 className="text-xs font-bold uppercase text-slate-400 tracking-wider flex items-center gap-2">
+              <Database className="w-3 h-3"/> Network Composition
+            </h3>
+            <NetworkBreakdowns snapshot={snapshot} />
+          </div>
+
+          <div className="p-4 rounded-xl bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50">
+             <h4 className="text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-2 flex items-center gap-2">
+               <Info className="w-3 h-3"/> Baseline Intelligence
+             </h4>
+             {proposalInputs ? (
+               <div className="space-y-3">
+                 <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-500">Paved (Total)</span>
+                    <span className="font-bold">{(Number(proposalInputs.paved_arid || 0) + Number(proposalInputs.paved_humid || 0)).toFixed(0)} km</span>
+                 </div>
+                 <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-500">Gravel (Total)</span>
+                    <span className="font-bold">{Number(proposalInputs.gravel_arid || 0).toFixed(0)} km</span>
+                 </div>
+                 <div className="pt-2 border-t border-indigo-100 flex justify-between">
+                    <span className="text-[11px] font-bold text-slate-500">Target VCI</span>
+                    <span className="text-xs font-black text-indigo-600 font-mono">{proposalInputs.avg_vci_used || 45}</span>
+                 </div>
+               </div>
+             ) : <p className="text-[10px] text-slate-400 italic">Select a project to load data</p>}
+          </div>
+        </div>
+
+        {/* RIGHT: MAP AREA */}
+        <div className="flex-1 relative bg-slate-100">
+           <div className="absolute top-4 left-4 z-[1000] flex gap-2">
+              <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur px-3 py-2 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 flex items-center gap-3">
+                <div className="p-1.5 bg-emerald-100 rounded-md text-emerald-600">
+                  <Activity className="w-3.5 h-3.5"/>
+                </div>
+                <div>
+                  <div className="text-[9px] uppercase font-bold text-slate-400">Viewing Region</div>
+                  <div className="text-xs font-bold">{selectedProject?.province || "National"}</div>
+                </div>
+              </div>
+           </div>
+
+           <LiveMap province={selectedProject?.province || "Gauteng"} onSegmentSelect={() => {}} theme="light" />
+        </div>
+      </div>
+    </div>
+  );
+}\n--- ./page.tsx ---\n
+"use client";
+
+import React, { useEffect, useMemo, useState, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
+import { supabase } from "@/lib/supabaseClient";
+import { AlertTriangle, Loader2, Map as MapIcon, Truck, LayoutTemplate, FileText } from "lucide-react";
+import { useNetworkSnapshot } from "../projects/[projectId]/config/hooks/useNetworkSnapshot";
+import { NetworkProjectSelector } from "./components/NetworkProjectSelector";
+import { NetworkSnapshotSummary } from "./components/NetworkSnapshotSummary";
+import { NetworkBreakdowns } from "./components/NetworkBreakdowns";
+import { NetworkInspector } from "./components/NetworkInspector";
+import { cn } from "@/lib/utils";
+
+const LiveMap = dynamic(() => import("./components/LiveMap"), { ssr: false });
+const API_BASE = process.env.NEXT_PUBLIC_API_URL;
+
+// ... (Keep existing Types) ...
+
+export default function NetworkPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const activeTab = searchParams.get("tab") === "sim" ? "sim" : "gis";
+
+  // ... (Keep existing State & Fetch Logic) ...
+  const [projects, setProjects] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const [proposalInputs, setProposalInputs] = useState<any>(null); // <--- NEW STATE
+
+  useEffect(() => {
+      // (Keep existing project fetch logic)
+      // ...
+  }, []);
+
+  // --- NEW: FETCH ENGINEER INPUTS ---
+  useEffect(() => {
+      if (!selectedProjectId) return;
+      async function fetchInputs() {
+          const { data: { session } } = await supabase.auth.getSession();
+          if(!session) return;
+          try {
+            const res = await fetch(`${API_BASE}/api/v1/projects/${selectedProjectId}/proposal-data`, {
+                headers: { Authorization: `Bearer ${session.access_token}` }
+            });
+            if(res.ok) {
+                const data = await res.json();
+                setProposalInputs(data);
+            }
+          } catch(e) { console.error(e); }
+      }
+      fetchInputs();
+  }, [selectedProjectId]);
+
+  const { data: snapshot, loading: snapLoading, error: snapshotError, refetch } = useNetworkSnapshot(selectedProjectId || "");
+  const selectedProject = useMemo(() => projects.find((p) => p.id === selectedProjectId), [projects, selectedProjectId]);
+  const activeProvince = selectedProject?.province || "Gauteng";
+
+  const setTab = (tab: string) => {
+      const newParams = new URLSearchParams(searchParams.toString());
+      if(tab === 'gis') newParams.delete('tab'); else newParams.set('tab', 'sim');
+      router.push(`/network?${newParams.toString()}`);
+  };
+
+  return (
+    <div className="h-full w-full bg-[var(--background)] flex flex-col overflow-hidden">
+      
+      {/* HEADER */}
+      <div className="p-6 border-b border-slate-200 dark:border-slate-800 bg-[var(--surface-bg)] flex justify-between items-start shrink-0 z-20">
+          <div>
+               <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Network Digital Twin</h1>
+               <p className="text-sm text-slate-500">GIS analysis & physics-based stress testing.</p>
+          </div>
+          <div className="flex flex-col items-end gap-3">
+               <NetworkProjectSelector
+                   projects={projects} projectsLoading={loading} projectsError={null}
+                   selectedProjectId={selectedProjectId} onSelectedProjectChange={setSelectedProjectId}
+                   snapshotLoading={snapLoading} onRefreshSnapshot={refetch} selectedProject={selectedProject}
+               />
+               <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-slate-800">
+                   <button onClick={() => setTab("gis")} className={cn("flex items-center gap-2 px-4 py-2 rounded-md text-sm font-bold transition-all", activeTab === "gis" ? "bg-white dark:bg-slate-800 text-indigo-600 shadow-sm" : "text-slate-500 hover:text-slate-700")}>
+                       <MapIcon className="w-4 h-4" /> GIS Inventory
+                   </button>
+                   <button onClick={() => setTab("sim")} className={cn("flex items-center gap-2 px-4 py-2 rounded-md text-sm font-bold transition-all", activeTab === "sim" ? "bg-white dark:bg-slate-800 text-emerald-600 shadow-sm" : "text-slate-500 hover:text-slate-700")}>
+                       <Truck className="w-4 h-4" /> 3D Digital Twin
+                   </button>
+               </div>
+          </div>
+      </div>
+
+      <div className="flex-1 overflow-hidden relative">
+           
+           {/* TAB 1: GIS INVENTORY (The Engineer's View) */}
+           <div className={cn("absolute inset-0 flex flex-col lg:flex-row transition-opacity duration-500 bg-[var(--background)]", activeTab === "gis" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none")}>
+               <div className="flex-1 relative border-r border-slate-200 dark:border-slate-800 bg-slate-900">
+                   <LiveMap province={activeProvince} onSegmentSelect={()=>{}} />
+                   
+                   {/* ENGINEER INPUT OVERLAY */}
+                   <div className="absolute bottom-6 left-6 max-w-sm bg-white/90 dark:bg-slate-900/90 backdrop-blur p-4 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 z-[400]">
+                       <h4 className="text-xs font-bold uppercase text-slate-500 mb-3 flex items-center gap-2">
+                           <FileText className="w-3 h-3" /> Engineer's Baseline Inputs
+                       </h4>
+                       {proposalInputs ? (
+                           <div className="grid grid-cols-2 gap-4 text-xs">
+                               <div>
+                                   <div className="text-slate-500">Paved Network</div>
+                                   <div className="font-bold text-slate-900 dark:text-white">
+                                       {(Number(proposalInputs.paved_arid) + Number(proposalInputs.paved_humid) + Number(proposalInputs.paved_semi_arid)).toFixed(0)} km
+                                   </div>
+                               </div>
+                               <div>
+                                   <div className="text-slate-500">Gravel Network</div>
+                                   <div className="font-bold text-slate-900 dark:text-white">
+                                       {(Number(proposalInputs.gravel_arid) + Number(proposalInputs.gravel_humid)).toFixed(0)} km
+                                   </div>
+                               </div>
+                               <div>
+                                   <div className="text-slate-500">Baseline VCI</div>
+                                   <div className="font-bold text-indigo-600">{Number(proposalInputs.avg_vci_used || 45).toFixed(1)}</div>
+                               </div>
+                               <div>
+                                   <div className="text-slate-500">Source</div>
+                                   <div className="font-bold uppercase">{proposalInputs.data_source || "Manual"}</div>
+                               </div>
+                           </div>
+                       ) : <span className="text-xs text-slate-500">Loading inputs...</span>}
+                   </div>
+               </div>
+
+               {/* Right Sidebar */}
+               <div className="w-full lg:w-96 bg-[var(--background)] border-l border-slate-200 dark:border-slate-800 overflow-y-auto p-6 space-y-6">
+                    <NetworkSnapshotSummary snapshot={snapshot} loading={snapLoading} error={snapshotError} />
+                    <NetworkBreakdowns snapshot={snapshot} />
+               </div>
+           </div>
+
+           {/* TAB 2: 3D SIMULATION (Full Screen) */}
+           <div className={cn("absolute inset-0 bg-[var(--surface-bg)] transition-opacity duration-500", activeTab === "sim" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none")}>
+                <Suspense fallback={<div className="p-10 flex items-center justify-center"><Loader2 className="animate-spin"/></div>}>
+                     <NetworkInspector 
+                        // Pass real project data to the inspector
+                        selectedSegment={{
+                            iri: proposalInputs?.avg_vci_used ? (100 - proposalInputs.avg_vci_used) / 10 : 3.5, // Convert VCI to IRI approx
+                            width: 8,
+                            surface: "paved",
+                            name: selectedProject?.project_name || "Project Road"
+                        }} 
+                        province={activeProvince} 
+                    />
+                </Suspense>
+           </div>
+
+      </div>
+    </div>
+  );
+}\n--- ./digital-twin/page.tsx ---\n
+"use client";
+
+import React, { Suspense, useState, useEffect } from "react";
+import { Loader2 } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
+import { NetworkInspector } from "../components/NetworkInspector";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL;
+
+export default function DigitalTwinPage() {
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const [proposalInputs, setProposalInputs] = useState<any>(null);
+
+  useEffect(() => {
+    if (!selectedProjectId) return;
+    async function fetchInputs() {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${API_BASE}/api/v1/projects/${selectedProjectId}/proposal-data`, {
+        headers: { Authorization: `Bearer ${session?.access_token}` }
+      });
+      if (res.ok) setProposalInputs(await res.json());
+    }
+    fetchInputs();
+  }, [selectedProjectId]);
+
+  return (
+    <div className="h-full w-full bg-slate-950 overflow-hidden">
+      <Suspense fallback={<div className="flex h-full items-center justify-center text-white"><Loader2 className="animate-spin mr-2"/> Initializing Engine...</div>}>
+        <NetworkInspector 
+          selectedSegment={{
+            // Approximate IRI from VCI: Higher VCI (good road) = Lower IRI (smooth)
+            iri: proposalInputs?.avg_vci_used ? (100 - proposalInputs.avg_vci_used) / 10 : 3.5,
+            width: 8,
+            surface: "paved",
+            name: "Simulation Baseline"
+          }}
+          province="Gauteng" 
+        />
+      </Suspense>
+    </div>
+  );
+}

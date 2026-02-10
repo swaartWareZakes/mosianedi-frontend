@@ -23,7 +23,8 @@ import {
   Sparkles,
   Wallet,
   Map,
-  TrendingUp // Added for the Logo
+  Truck, // <--- ADDED TRUCK ICON
+  TrendingUp 
 } from "lucide-react";
 
 type Profile = {
@@ -63,7 +64,8 @@ function NavGroup({ label, icon, active, expanded, onToggle, children, sidebarOp
 // --- 2. NAV ITEM (Sub-Link) ---
 function NavItem({ href, label, icon }: any) {
     const pathname = usePathname();
-    const isActive = href ? pathname === href : false;
+    // Basic active check (can be improved if needed)
+    const isActive = href ? pathname === href || pathname.startsWith(`${href}?`) : false;
     return (
         <Link href={href} className={cn("flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg transition-colors", isActive ? "bg-[var(--accent-color)]/10 text-[var(--accent-color)]" : "text-slate-500 hover:text-slate-900 dark:hover:text-slate-200")}>
             {icon && <span className="w-3 h-3 opacity-70">{icon}</span>}
@@ -92,11 +94,11 @@ export function Sidebar() {
   const pathname = usePathname();
   const params = useParams();
   
-  // Extract projectId if we are in a project context
   const projectId = Array.isArray(params?.projectId) ? params?.projectId[0] : params?.projectId;
 
   const [projectsOpen, setProjectsOpen] = useState(true);
   const [reportingOpen, setReportingOpen] = useState(true);
+  const [networkOpen, setNetworkOpen] = useState(true); // <--- NEW STATE
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -118,14 +120,18 @@ export function Sidebar() {
 
   const toggleSidebar = () => {
       setOpen(!open);
-      if (open) { setProjectsOpen(false); setReportingOpen(false); }
+      if (open) { 
+          setProjectsOpen(false); 
+          setReportingOpen(false); 
+          setNetworkOpen(false); // <--- CLOSE NETWORK ON COLLAPSE
+      }
   };
 
-  // ✅ DYNAMIC ROUTES
+  // DYNAMIC ROUTES
   const dashboardHref = projectId ? `/projects/${projectId}/dashboard` : "/dashboard";
   const advisorHref = projectId ? `/projects/${projectId}/advisor` : "/advisor";
 
-  // ✅ REPORT LINKS
+  // REPORT LINKS
   const executiveCaseHref = "/reports/treasury-view";
   const engineeringProgHref = "/reports/budget";
   const reportsBuilderHref = "/reports";
@@ -133,7 +139,7 @@ export function Sidebar() {
   return (
     <aside className={cn("flex h-full flex-col bg-[var(--sidebar-bg)] border-r border-slate-200 dark:border-slate-800 transition-all duration-300 ease-in-out z-20 shrink-0", open ? "w-64" : "w-20")}>
       
-      {/* HEADER - UPDATED BRANDING */}
+      {/* HEADER */}
       <div className={cn("flex items-center h-16 px-4 border-b border-slate-100 dark:border-slate-800/50", open ? "justify-between" : "justify-center")}>
         {open ? (
              <div className="flex items-center gap-2 font-bold text-sm tracking-tight text-slate-900 dark:text-white leading-none">
@@ -169,8 +175,27 @@ export function Sidebar() {
         {/* DASHBOARD */}
         <SimpleLink href={dashboardHref} icon={<LayoutDashboard className="w-5 h-5"/>} label="Dashboard" active={pathname.includes("/dashboard")} open={open} />
         
-        {/* NETWORK & GIS */}
-        <SimpleLink href="/network" icon={<Map className="w-5 h-5"/>} label="Network & GIS" active={pathname.includes("/network")} open={open} />
+        {/* --- UPDATED NETWORK & GIS SECTION --- */}
+        {/* --- UPDATED NETWORK & GIS SECTION --- */}
+        <NavGroup 
+            label="Network & GIS" 
+            icon={<Map className="w-5 h-5"/>} 
+            active={pathname.includes("/network")}
+            expanded={networkOpen}
+            onToggle={() => { if (!open) setOpen(true); setNetworkOpen(!networkOpen); }}
+            sidebarOpen={open}
+        >
+            <NavItem 
+                href="/network/inventory" 
+                label="Network Inventory" 
+                icon={<Layers className="w-3 h-3"/>} 
+            />
+            <NavItem 
+                href="/network/digital-twin" 
+                label="3D Simulation" 
+                icon={<Truck className="w-3 h-3"/>} 
+            />
+        </NavGroup>
 
         {/* PROVINCIAL REPORTING */}
         <NavGroup 

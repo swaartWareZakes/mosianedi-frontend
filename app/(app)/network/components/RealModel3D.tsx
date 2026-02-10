@@ -1,400 +1,180 @@
 "use client";
 
-import React, { useMemo, useRef, useState, Suspense } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, Sky, PerspectiveCamera, Cloud } from "@react-three/drei";
+import React, { useMemo, useRef, Suspense } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { 
+  OrbitControls, 
+  PerspectiveCamera, 
+  useGLTF, 
+  Environment, 
+  ContactShadows, 
+  Stars,
+  Sky 
+} from "@react-three/drei";
 import * as THREE from "three";
 
-// --- Types ---
-type SurfaceType = "paved" | "gravel";
+export type SurfaceType = "paved" | "gravel";
 export type CargoType = "electronics" | "bricks" | "produce";
 export type WeatherType = "sunny" | "rain";
 
-interface ModelProps {
-  width?: number;
+export interface ModelProps {
   iri?: number;
   surface?: SurfaceType;
-  showLayers?: boolean;
   isDriving?: boolean;
-  onDriveComplete?: () => void;
-  province?: string;
-  cargoWeight?: number;
-  cargoType?: CargoType;
-  weather?: WeatherType;
+  onDriveComplete?: (results: { integrity: number; loss: number }) => void;
   speedLimit?: number;
+  potholeCount?: number;
 }
 
-// --- SUB-COMPONENT: RAIN SYSTEM ---
-function RainSystem({ active }: { active: boolean }) {
-  const count = 2000;
-
-  const positions = useMemo(() => {
-    const pos = new Float32Array(count * 3);
-    for (let i = 0; i < count; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 100;
-      pos[i * 3 + 1] = Math.random() * 40;
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 100;
-    }
-    return pos;
-  }, [count]);
-
-  const ref = useRef<THREE.Points>(null);
+function Scenery({ speed, isDriving }: { speed: number; isDriving: boolean }) {
+  const { scene: treeScene } = useGLTF("/models/tree.glb");
+  const { scene: barrierScene } = useGLTF("/models/barrier.glb");
+  const groupRef = useRef<THREE.Group>(null!);
 
   useFrame((_, delta) => {
-    if (!active) return;
-    if (!ref.current) return;
-
-    const posAttribute = ref.current.geometry.getAttribute(
-      "position"
-    ) as THREE.BufferAttribute;
-
-    const array = posAttribute.array as Float32Array;
-
-    for (let i = 0; i < count; i++) {
-      array[i * 3 + 1] -= 25 * delta;
-      if (array[i * 3 + 1] < 0) array[i * 3 + 1] = 40;
+    if (isDriving && groupRef.current) {
+      groupRef.current.children.forEach((child) => {
+        child.position.z -= (speed / 7) * delta;
+        if (child.position.z < -40) child.position.z = 120;
+      });
     }
-
-    posAttribute.needsUpdate = true;
   });
 
   return (
-    <points ref={ref} visible={active}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
-      </bufferGeometry>
-      <pointsMaterial
-        color="#a5f3fc"
-        size={0.15}
-        transparent
-        opacity={0.6}
-        sizeAttenuation
-        depthWrite={false}
-      />
-    </points>
+    <group ref={groupRef}>
+      {[0, 30, 60, 90, 120].map((z) => (
+        <React.Fragment key={`trees-${z}`}>
+          <primitive object={treeScene.clone()} position={[-15, 0, z]} scale={2.5} />
+          <primitive object={treeScene.clone()} position={[15, 0, z + 15]} scale={2.5} />
+        </React.Fragment>
+      ))}
+      
+      {Array.from({ length: 80 }).map((_, i) => (
+        <React.Fragment key={`barriers-${i}`}>
+          <primitive 
+            object={barrierScene.clone()} 
+            position={[11, 0, i * 2.5]} 
+            scale={[1.5, 1.5, 3]} 
+            rotation={[0, Math.PI / 2, 0]} 
+          />
+          <primitive 
+            object={barrierScene.clone()} 
+            position={[-11, 0, i * 2.5]} 
+            scale={[1.5, 1.5, 3]} 
+            rotation={[0, Math.PI / 2, 0]} 
+          />
+        </React.Fragment>
+      ))}
+    </group>
   );
 }
 
-// --- SUB-COMPONENT: CHASE CAMERA ---
-function ChaseCamera({
-  targetRef,
-  iri,
-}: {
-  targetRef: React.MutableRefObject<THREE.Group>;
-  iri: number;
-}) {
-  const { camera } = useThree();
-  const vec = new THREE.Vector3();
-
-  useFrame((state) => {
-    if (!targetRef.current) return;
-
-    const truckPos = targetRef.current.position;
-    const targetCamPos = new THREE.Vector3(0, 5, truckPos.z - 18);
-    const lookAtPos = new THREE.Vector3(0, 2, truckPos.z + 20);
-
-    const time = state.clock.getElapsedTime();
-    const shakeIntensity = (Math.max(0, iri - 3) / 10) * 0.5;
-
-    const noiseX = Math.sin(time * 20) * shakeIntensity;
-    const noiseY = Math.cos(time * 25) * shakeIntensity;
-
-    vec.copy(targetCamPos).add(new THREE.Vector3(noiseX, noiseY, 0));
-    camera.position.lerp(vec, 0.08);
-    camera.lookAt(lookAtPos);
-  });
-
-  return null;
+function PotholeModel({ position }: { position: [number, number, number] }) {
+  const { scene } = useGLTF("/models/potholes.glb");
+  // FIXED: Lowered to -0.3 to sit deep in the road and avoid surface clipping
+  return <primitive object={scene.clone()} position={[position[0], -0.3, position[2]]} scale={1.2} />;
 }
 
-// --- SUB-COMPONENT: TRUCK ---
-function Truck({
-  isDriving,
-  iri,
-  onComplete,
-  sharedRef,
-  cargoType,
-  cargoWeight,
-  weather,
-  speedLimit,
-}: any) {
-  const cargoRef = useRef<THREE.Group>(null);
-  const [lightTarget, setLightTarget] = useState<THREE.Object3D | null>(null);
+function ModernGameRoad({ speed, isDriving, iri = 2 }: { speed: number; isDriving: boolean; iri: number }) {
+  const groupRef = useRef<THREE.Group>(null!);
+  
+  const potholes = useMemo(() => {
+    const p = [];
+    const count = iri > 4 ? 12 : 4; 
+    for (let i = 0; i < count; i++) {
+      p.push({
+        id: i,
+        z: Math.random() * 80, 
+        x: (Math.random() - 0.5) * 8 
+      });
+    }
+    return p;
+  }, [iri]);
 
-  const baseSpeed = (speedLimit || 80) / 3.6;
-  const weatherPenalty = weather === "rain" ? 0.7 : 1.0;
-  const conditionFactor = Math.max(0.2, 1 - iri / 20);
-  const currentSpeed = Math.min(35, baseSpeed * weatherPenalty * conditionFactor);
-  const maxDistance = 450;
+  useFrame((_, delta) => {
+    if (isDriving && groupRef.current) {
+      groupRef.current.children.forEach((child) => {
+        child.position.z -= (speed / 7) * delta;
+        if (child.position.z < -30) child.position.z = 89.2; 
+      });
+    }
+  });
+
+  return (
+    <group ref={groupRef}>
+      {[0, 29.8, 59.6, 89.4].map((z) => (
+        <group key={z} position={[0, 0, z]}>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+            <planeGeometry args={[22, 30.2]} /> 
+            <meshStandardMaterial color="#1f2937" roughness={0.8} metalness={0.1} />
+          </mesh>
+          {potholes.map(p => (
+            <PotholeModel key={p.id} position={[p.x, 0, (p.z % 30) - 15]} />
+          ))}
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
+            <planeGeometry args={[0.3, 8]} />
+            <meshBasicMaterial color="#ffffff" transparent opacity={0.4} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
+function GameTruck({ isDriving, iri = 2.0, speedLimit = 80, onComplete }: any) {
+  const { scene } = useGLTF("/models/truck.glb");
+  const groupRef = useRef<THREE.Group>(null!);
+  const driveTime = useRef(0);
+  const totalSimTime = 10;
 
   useFrame((state, delta) => {
-    if (!sharedRef.current) return;
-    const group = sharedRef.current;
+    if (!isDriving) return;
+    driveTime.current += delta;
+    
+    const time = state.clock.getElapsedTime();
+    const intensity = (iri / 10) * (speedLimit / 100);
 
-    if (isDriving) {
-      group.position.z += currentSpeed * delta;
+    // FIXED: Lifted to 1.15 to keep tires on the asphalt surface
+    groupRef.current.position.y = 1.15 + Math.sin(time * 38) * (intensity * 0.25);
+    groupRef.current.rotation.z = Math.sin(time * 22) * (intensity * 0.1);
 
-      const time = state.clock.getElapsedTime();
-      const bounceAmplitude = (iri / 15) * 0.4;
-      const yBounce =
-        Math.sin(time * 20) * bounceAmplitude +
-        Math.cos(time * 35) * (bounceAmplitude * 0.5);
-      group.position.y = yBounce;
-
-      if (cargoRef.current) {
-        cargoRef.current.rotation.z = Math.sin(time * 12) * (bounceAmplitude * 1.5);
-        cargoRef.current.rotation.x = Math.cos(time * 18) * (bounceAmplitude * 1.5);
-      }
-
-      if (group.position.z > maxDistance) onComplete();
-    } else {
-      group.position.z = -20;
-      group.position.y = 0;
-      if (cargoRef.current) cargoRef.current.rotation.set(0, 0, 0);
+    if (driveTime.current >= totalSimTime) {
+      driveTime.current = 0;
+      onComplete?.({ integrity: Math.max(10, 100 - (iri * 11)), loss: iri * 1650 });
     }
   });
 
-  const cargoColor =
-    cargoType === "bricks" ? "#7f1d1d" : cargoType === "produce" ? "#65a30d" : "#fbbf24";
-
   return (
-    <group ref={sharedRef} position={[2, 0, -20]}>
-      <object3D ref={setLightTarget} position={[0, 0, 20]} />
-
-      {/* ↓↓↓ PERF FIX: in rain, don’t go crazy on spotlight intensity/shadows */}
-      {lightTarget && (
-        <>
-          <spotLight
-            position={[0.8, 1.5, 2.5]}
-            target={lightTarget}
-            angle={0.6}
-            penumbra={0.5}
-            intensity={weather === "rain" ? 10 : 12}
-            color="#fffbeb"
-            distance={weather === "rain" ? 60 : 60}
-            castShadow={false}
-          />
-          <spotLight
-            position={[-0.8, 1.5, 2.5]}
-            target={lightTarget}
-            angle={0.6}
-            penumbra={0.5}
-            intensity={weather === "rain" ? 10 : 12}
-            color="#fffbeb"
-            distance={weather === "rain" ? 60 : 60}
-            castShadow={false}
-          />
-        </>
-      )}
-
-      <mesh position={[0, 0.6, 0]} castShadow>
-        <boxGeometry args={[2.2, 0.5, 6]} />
-        <meshStandardMaterial color="#b91c1c" roughness={0.4} />
-      </mesh>
-
-      <mesh position={[0, 1.8, 2]} castShadow>
-        <boxGeometry args={[2.2, 1.8, 1.8]} />
-        <meshStandardMaterial color="#991b1b" />
-      </mesh>
-
-      <mesh position={[0, 2.2, 2.91]}>
-        <planeGeometry args={[2, 0.8]} />
-        <meshStandardMaterial color="#1e293b" roughness={0.1} metalness={0.8} />
-      </mesh>
-
-      <group ref={cargoRef} position={[0, 0.9, -1]}>
-        <mesh position={[0, 0.6, 0]} castShadow>
-          <boxGeometry args={[2, 1.2 + cargoWeight / 100, 2]} />
-          <meshStandardMaterial color={cargoColor} />
-        </mesh>
-      </group>
-
-      <mesh position={[-1.2, 0.4, 1.5]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.4, 0.4, 0.4]} />
-        <meshStandardMaterial color="#111" />
-      </mesh>
-      <mesh position={[1.2, 0.4, 1.5]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.4, 0.4, 0.4]} />
-        <meshStandardMaterial color="#111" />
-      </mesh>
-      <mesh position={[-1.2, 0.4, -1.5]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.4, 0.4, 0.4]} />
-        <meshStandardMaterial color="#111" />
-      </mesh>
-      <mesh position={[1.2, 0.4, -1.5]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.4, 0.4, 0.4]} />
-        <meshStandardMaterial color="#111" />
-      </mesh>
+    <group ref={groupRef} position={[0, 1.15, 10]}>
+      <primitive object={scene} scale={2.8} rotation={[0, Math.PI / 2, 0]} />
+      <pointLight position={[0, 1.5, 0]} color="#00f2ff" intensity={25} distance={12} />
     </group>
   );
 }
 
-// --- SUB-COMPONENT: ROAD SEGMENT ---
-function RoadSegment({ width, length, condition, surface, showLayers, weather }: any) {
-  const isWet = weather === "rain";
-  const roadColor = surface === "paved" ? (isWet ? "#1e293b" : "#334155") : "#d97706";
-  const roughness = surface === "paved" ? (isWet ? 0.1 : 0.6) : 1.0;
-
-  const potholes = useMemo(() => {
-    if (condition < 4) return [];
-    return Array.from({ length: Math.floor((condition - 3) * 2) }).map(() => ({
-      x: (Math.random() - 0.5) * (width - 1),
-      z: (Math.random() - 0.5) * (length - 2),
-      size: 0.2 + Math.random() * 0.4,
-    }));
-  }, [condition, width, length]);
-
-  const layerGap = showLayers ? 0.6 : 0;
-
+export default function RealModel3D(props: ModelProps) {
   return (
-    <group>
-      <mesh
-        position={[0, 0.1 + layerGap * 2, 0]}
-        rotation={[-Math.PI / 2, 0, 0]}
-        receiveShadow
-      >
-        <planeGeometry args={[width, length, 16, 16]} />
-        <meshStandardMaterial color={roadColor} roughness={roughness} metalness={isWet ? 0.4 : 0.1} />
-      </mesh>
+    <div className="w-full h-full bg-[#020617]">
+      <Canvas shadows gl={{ antialias: true }}>
+        <color attach="background" args={["#0a192f"]} />
+        <Sky sunPosition={[100, 10, 100]} turbidity={0.1} rayleigh={2} />
+        <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
+        <fog attach="fog" args={["#0a192f", 20, 90]} />
+        
+        <Suspense fallback={null}>
+          <Environment preset="city" />
+          <ambientLight intensity={0.7} /> 
+          <directionalLight position={[10, 20, 10]} intensity={1.5} castShadow />
 
-      {potholes.map((ph, i) => (
-        <mesh
-          key={i}
-          position={[ph.x, 0.11 + layerGap * 2, ph.z]}
-          rotation={[-Math.PI / 2, 0, 0]}
-        >
-          <circleGeometry args={[ph.size, 16]} />
-          <meshStandardMaterial color={isWet ? "#000" : "#0f172a"} roughness={isWet ? 0 : 1} />
-        </mesh>
-      ))}
+          <GameTruck {...props} onComplete={props.onDriveComplete} />
+          <ModernGameRoad speed={props.speedLimit || 80} isDriving={!!props.isDriving} iri={props.iri || 2} />
+          <Scenery speed={props.speedLimit || 80} isDriving={!!props.isDriving} />
+          
+          <ContactShadows opacity={0.6} scale={40} blur={2.5} far={10} color="#000000" />
+        </Suspense>
 
-      {surface === "paved" && (
-        <mesh position={[0, 0.11 + layerGap * 2, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[0.15, length]} />
-          <meshBasicMaterial color="#fff" />
-        </mesh>
-      )}
-
-      <mesh position={[0, -0.25 + layerGap, 0]}>
-        <boxGeometry args={[width, 0.5, length]} />
-        <meshStandardMaterial color="#78350f" />
-      </mesh>
-    </group>
-  );
-}
-
-// --- ENVIRONMENT ---
-function Biome({ province, weather }: { province: string; weather: string }) {
-  const isFreeState = province.toLowerCase().includes("free");
-  const roughness = weather === "rain" ? 0.2 : 1;
-  return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.8, 0]} receiveShadow>
-      <planeGeometry args={[1000, 1000]} />
-      <meshStandardMaterial color={isFreeState ? "#eab308" : "#166534"} roughness={roughness} />
-    </mesh>
-  );
-}
-
-export default function RealModel3D({
-  width = 8,
-  iri = 2.0,
-  surface = "paved",
-  showLayers = false,
-  isDriving = false,
-  onDriveComplete,
-  province = "Gauteng",
-  cargoWeight = 10,
-  cargoType = "electronics",
-  weather = "sunny",
-  speedLimit = 120,
-}: ModelProps) {
-  const truckRef = useRef<THREE.Group>(null!);
-
-  return (
-    <div className="h-full w-full bg-slate-900 relative rounded-xl overflow-hidden shadow-2xl">
-      <Canvas
-        shadows
-        // ↓↓↓ PERF FIX: lower DPR so rain mode doesn’t kill the GPU
-        dpr={[1, 1.2]}
-        gl={{ antialias: true, powerPreference: "high-performance" }}
-        onCreated={({ gl }) => {
-          // Avoid the white "blank" look if context drops for a frame
-          gl.setClearColor(new THREE.Color("#0b1220"), 1);
-
-          // Optional: prove context loss if it happens
-          const el = gl.domElement;
-          el.addEventListener("webglcontextlost", (e) => {
-            e.preventDefault();
-            console.warn("⚠️ WebGL context lost");
-          });
-        }}
-      >
-        {/* Force consistent background */}
-        <color attach="background" args={["#0b1220"]} />
-
-        <PerspectiveCamera makeDefault position={[15, 10, 15]} fov={50} far={1000} />
-
-        <Sky
-          sunPosition={weather === "rain" ? [0, 10, -100] : [100, 20, 100]}
-          turbidity={weather === "rain" ? 18 : 10}
-          rayleigh={weather === "rain" ? 0.15 : 0.5}
-        />
-
-        {/* PERF FIX: make clouds lighter. If it still blanks, comment this out to confirm Cloud is the culprit. */}
-        {weather === "rain" && (
-          <Suspense fallback={null}>
-            <Cloud
-              opacity={0.25}
-              speed={0.25}
-              bounds={[35, 4, 35]}
-              segments={10}
-              position={[0, 18, 0]}
-            />
-          </Suspense>
-        )}
-
-        <ambientLight intensity={weather === "rain" ? 0.25 : 0.6} />
-
-        <directionalLight
-          position={[50, 50, 25]}
-          intensity={weather === "rain" ? 0.6 : 1.4}
-          castShadow
-          shadow-mapSize={[1024, 1024]}
-        />
-
-        <Biome province={province} weather={weather} />
-        <RainSystem active={weather === "rain"} />
-
-        {/* ROAD LOOP */}
-        {Array.from({ length: 15 }).map((_, i) => (
-          <group key={i} position={[0, 0, i * 30 - 40]}>
-            <RoadSegment
-              width={width}
-              length={30}
-              condition={iri}
-              surface={surface}
-              showLayers={showLayers}
-              weather={weather}
-            />
-          </group>
-        ))}
-
-        <Truck
-          sharedRef={truckRef}
-          isDriving={isDriving}
-          iri={iri}
-          onComplete={onDriveComplete}
-          cargoType={cargoType}
-          cargoWeight={cargoWeight}
-          weather={weather}
-          speedLimit={speedLimit}
-        />
-
-        {isDriving ? (
-          <ChaseCamera targetRef={truckRef} iri={iri} />
-        ) : (
-          <OrbitControls minPolarAngle={0} maxPolarAngle={Math.PI / 2.1} maxDistance={60} />
-        )}
+        <PerspectiveCamera makeDefault position={[20, 15, 28]} fov={35} />
+        <OrbitControls enablePan={false} maxPolarAngle={Math.PI / 2.1} />
       </Canvas>
     </div>
   );
