@@ -1,27 +1,36 @@
-/* --- ./app/globals.css (FINAL CORRECTED VERSION) --- */
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
-/* Define Custom Color Variables */
+
+/* Theme tokens */
 :root {
   /* Light Theme */
-  --background: #f4f6fb;   /* Main canvas background */
-  --foreground: #1e293b;   /* Main text color (slate-800) */
-  --surface-bg: #ffffff;   /* Elevated element background (cards, sidebar) */
+  --background: #f4f6fb;
+  --foreground: #1e293b;
+  --surface-bg: #ffffff;
   --sidebar-bg: var(--surface-bg);
-  --accent-color: #4c51f0; /* Accent color (deep purple/blue for CTAs) */
-  --input-bg: #ffffff;     /* Input background: White in light mode */
-  --input-text: #1e293b;   /* Input text: Dark text in light mode */
+  --accent-color: #4c51f0;
+  --input-bg: #ffffff;
+  --input-text: #1e293b;
+
+  /* Helps Safari/macOS render form controls correctly */
+  color-scheme: light;
 }
 
-/* Dark Theme */
 .dark {
-  --background: #09090b;   /* Deep near-black background (slate-950) */
-  --foreground: #f1f5f9;   /* Light text color (slate-100) */
-  --surface-bg: #111827;   /* Dark elevated surface (slate-900) */
+  --background: #09090b;
+  --foreground: #f1f5f9;
+  --surface-bg: #111827;
   --sidebar-bg: var(--surface-bg);
-  --accent-color: #5d62f3; 
-  --input-bg: #1e293d;     /* Input background: Slate-800 for contrast */
-  --input-text: #f1f5f9;   /* Input text: Light text in dark mode */
+  --accent-color: #5d62f3;
+  --input-bg: #1e293d;
+  --input-text: #f1f5f9;
+
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
 }
 
 body {

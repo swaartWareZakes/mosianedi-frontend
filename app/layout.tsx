@@ -7,14 +7,9 @@ export const metadata: Metadata = {
   description: "Road investment modeling platform",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      {/* no bg/text classes here, they come from globals.css via vars */}
       <body>
         <ThemeProvider>{children}</ThemeProvider>
       </body>

@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { FileText, LayoutTemplate, Download, Loader2 } from "lucide-react";
 import ReportFilterSidebar from "./ReportFilterSidebar";
 import ReportLivePreview from "./ReportLivePreview";
 import jsPDF from "jspdf";
 import { toPng } from "html-to-image";
+import { cn } from "@/lib/utils";
 
 export default function ReportBuilderShell() {
   const [downloading, setDownloading] = useState(false);
@@ -18,6 +19,20 @@ export default function ReportBuilderShell() {
     showAiNarrative: true,
     showSchedule: true,
   });
+
+  const TOKENS = useMemo(() => {
+    const BG = "bg-[var(--background)]";
+    const SURFACE = "bg-[var(--surface-bg)]";
+    const TEXT = "text-[var(--foreground)]";
+    const SOFT = "text-[color:color-mix(in_oklab,var(--foreground)_55%,transparent)]";
+    const MUTED = "text-[color:color-mix(in_oklab,var(--foreground)_40%,transparent)]";
+    const BORDER = "border-[color:color-mix(in_oklab,var(--foreground)_14%,transparent)]";
+    const BORDER_SOFT = "border-[color:color-mix(in_oklab,var(--foreground)_10%,transparent)]";
+    const PANEL = "bg-[color:color-mix(in_oklab,var(--surface-bg)_92%,transparent)]";
+    const SUBTLE = "bg-[color:color-mix(in_oklab,var(--surface-bg)_86%,transparent)]";
+    const HOVER = "hover:bg-[color:color-mix(in_oklab,var(--surface-bg)_84%,transparent)]";
+    return { BG, SURFACE, TEXT, SOFT, MUTED, BORDER, BORDER_SOFT, PANEL, SUBTLE, HOVER };
+  }, []);
 
   const updateConfig = (key: string, value: any) => {
     setReportConfig((prev) => ({ ...prev, [key]: value }));
@@ -47,29 +62,22 @@ export default function ReportBuilderShell() {
     if (!previewRef.current) return;
 
     const reportNode =
-      (previewRef.current.querySelector(
-        "#report-print-root"
-      ) as HTMLElement | null) ?? previewRef.current;
+      (previewRef.current.querySelector("#report-print-root") as HTMLElement | null) ??
+      previewRef.current;
 
     setDownloading(true);
 
     try {
-      // Give the UI a tick to finish layout
       await new Promise((r) => setTimeout(r, 50));
       await waitForImages(reportNode);
 
-      // Generate PNG from DOM
       const dataUrl = await toPng(reportNode, {
         cacheBust: true,
         pixelRatio: 2,
         backgroundColor: "#ffffff",
-
-        // If SVG charts/icons cause issues, keep this filter.
-        // Remove it if you want SVGs included (and it works in your case).
         filter: (node) => node.nodeName.toLowerCase() !== "svg",
       });
 
-      // Load image to get natural dimensions
       const img = new Image();
       img.src = dataUrl;
       await new Promise<void>((resolve, reject) => {
@@ -107,33 +115,29 @@ export default function ReportBuilderShell() {
   };
 
   return (
-    <div className="flex h-full w-full bg-[var(--background)]">
-      {/* LEFT PANEL: SETTINGS */}
-      <aside className="w-80 border-r border-slate-200 dark:border-slate-800 bg-[var(--surface-bg)] flex flex-col shrink-0 z-10">
-        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2">
-          <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg text-indigo-600 dark:text-indigo-400">
+    <div className={cn("flex h-full w-full", TOKENS.BG, TOKENS.TEXT)}>
+      {/* LEFT PANEL */}
+      <aside className={cn("w-80 flex flex-col shrink-0 z-10 border-r", TOKENS.SURFACE, TOKENS.BORDER)}>
+        <div className={cn("p-4 flex items-center gap-2 border-b", TOKENS.BORDER_SOFT)}>
+          <div className="p-2 rounded-lg bg-[color:color-mix(in_oklab,indigo_16%,transparent)] text-[color:color-mix(in_oklab,indigo_70%,black)]">
             <LayoutTemplate className="w-5 h-5" />
           </div>
-          <span className="font-bold text-sm">Report Configuration</span>
+          <span className="font-black text-sm">Report Configuration</span>
         </div>
+
         <div className="flex-1 overflow-y-auto">
-          <ReportFilterSidebar
-            config={reportConfig}
-            onConfigChange={updateConfig}
-          />
+          <ReportFilterSidebar config={reportConfig} onConfigChange={updateConfig} />
         </div>
       </aside>
 
-      {/* MAIN PANEL: PREVIEW */}
-      <main className="flex-1 bg-slate-100 dark:bg-slate-900/50 flex flex-col relative overflow-hidden">
-        <div className="h-16 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-6 bg-[var(--surface-bg)] shrink-0">
+      {/* MAIN PANEL */}
+      <main className={cn("flex-1 flex flex-col relative overflow-hidden", TOKENS.PANEL)}>
+        <div className={cn("h-16 flex items-center justify-between px-6 shrink-0 border-b", TOKENS.SURFACE, TOKENS.BORDER)}>
           <div className="flex items-center gap-3">
-            <FileText className="w-5 h-5 text-slate-400" />
+            <FileText className={cn("w-5 h-5", TOKENS.MUTED)} />
             <div>
-              <div className="text-sm font-bold text-slate-800 dark:text-slate-100">
-                Live Preview
-              </div>
-              <div className="text-[10px] text-slate-500 uppercase tracking-wider font-medium">
+              <div className="text-sm font-black">Live Preview</div>
+              <div className={cn("text-[10px] uppercase tracking-wider font-semibold", TOKENS.SOFT)}>
                 A4 Portrait • Strategic Business Case
               </div>
             </div>
@@ -142,18 +146,18 @@ export default function ReportBuilderShell() {
           <button
             onClick={handleDownload}
             disabled={downloading || !reportConfig.projectId}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-indigo-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {downloading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Download className="w-4 h-4" />
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-black transition-all",
+              "bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20",
+              "disabled:opacity-50 disabled:cursor-not-allowed"
             )}
+          >
+            {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
             {downloading ? "Publishing..." : "Export PDF"}
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-8 flex justify-center bg-slate-100 dark:bg-slate-900/50">
+        <div className={cn("flex-1 overflow-y-auto p-8 flex justify-center", TOKENS.PANEL)}>
           <ReportLivePreview previewRef={previewRef} config={reportConfig} />
         </div>
       </main>
