@@ -1,4 +1,4 @@
-/* --- ./app/(app)/layout.tsx (UPDATED) --- */
+/* --- ./app/(engineering)/layout.tsx (UPDATED) --- */
 "use client";
 
 import { ReactNode, useEffect, useState } from "react";
