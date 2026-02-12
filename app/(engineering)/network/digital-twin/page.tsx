@@ -13,10 +13,22 @@ type Project = {
   name?: string;
   province?: string;
   proposal_title?: string;
+
+  // existing / common fields you already used
   avg_vci_used?: number;
-  surface_type?: string;
+
+  // OPTIONAL if your backend already has it
+  avg_iri_used?: number;
+
+  surface_type?: string; // "paved" | "gravel"
   segment_name?: string;
 };
+
+function vciToIri(vci?: number) {
+  if (typeof vci !== "number") return 3.5;
+  // simple mapping: IRI approx 0–10 from VCI 100–0
+  return Math.max(1, Math.min(10, (100 - vci) / 10));
+}
 
 export default function NetworkSimulationPage() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -28,7 +40,9 @@ export default function NetworkSimulationPage() {
     let cancelled = false;
 
     async function fetchProjects() {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
       const res = await fetch(`${API_BASE}/api/v1/projects`, {
         headers: { Authorization: `Bearer ${session?.access_token}` },
@@ -58,7 +72,9 @@ export default function NetworkSimulationPage() {
     let cancelled = false;
 
     async function fetchProjectDetails() {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
       const res = await fetch(`${API_BASE}/api/v1/projects/${selectedProjectId}`, {
         headers: { Authorization: `Bearer ${session?.access_token}` },
@@ -77,6 +93,13 @@ export default function NetworkSimulationPage() {
       cancelled = true;
     };
   }, [selectedProjectId]);
+
+  const segmentIRI =
+    typeof activeProject?.avg_iri_used === "number"
+      ? activeProject.avg_iri_used
+      : vciToIri(activeProject?.avg_vci_used);
+
+  const surface = (activeProject?.surface_type as any) || "paved";
 
   return (
     <div className="h-screen w-full bg-slate-950 overflow-hidden flex flex-col">
@@ -114,14 +137,12 @@ export default function NetworkSimulationPage() {
           }
         >
           <NetworkInspector
-            // Unlock button even if API returns only project_name
             projectName={activeProject?.project_name || activeProject?.name || "Active Simulation"}
             province={activeProject?.province || "Unknown Province"}
             proposalName={activeProject?.proposal_title || "Simulation Baseline"}
             selectedSegment={{
-              // If you only have VCI, convert to an IRI-like input
-              iri: activeProject?.avg_vci_used ? (100 - activeProject.avg_vci_used) / 10 : 3.5,
-              surface: (activeProject?.surface_type as any) || "paved",
+              iri: segmentIRI,
+              surface,
               name: activeProject?.segment_name || "Primary Network Segment",
             }}
           />
