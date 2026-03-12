@@ -30,6 +30,7 @@ type Props = {
   error: string | null;
   adjustedAssetValue: number | null;
   simulationResults: SimulationOutput | null;
+  readOnly?: boolean;
 };
 
 const SURFACE_COLOURS = ["#6366f1", "#f59e0b"];
@@ -59,6 +60,7 @@ export function DashboardMainPanel({
   error,
   adjustedAssetValue,
   simulationResults,
+  readOnly = false
 }: Props) {
   const { analysis, loading: aiLoading } = useAiAdvisor(projectId);
 

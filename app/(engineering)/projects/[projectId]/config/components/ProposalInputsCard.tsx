@@ -1,15 +1,17 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Loader2, Save, AlertCircle, CheckCircle2, Route as RouteIcon } from "lucide-react";
+import { Loader2, Save, AlertCircle, CheckCircle2, Route as RouteIcon, EyeOff } from "lucide-react";
 import type { ProposalData, ProposalDataPatch } from "../types";
 import type { ProjectMeta } from "../hooks/useProjectMeta";
+import { cn } from "@/lib/utils";
 
 type Props = {
   proposal: ProposalData | null;
-  projectMeta?: ProjectMeta | null; // <--- ADDED
+  projectMeta?: ProjectMeta | null; 
   saving: boolean;
   onSave: (patch: ProposalDataPatch) => Promise<void> | void;
+  readOnly?: boolean; // <--- ADDED PROP
 };
 
 function n(v: any) {
@@ -24,19 +26,9 @@ const TEXT_SOFT = "text-[color:color-mix(in_oklab,var(--foreground)_45%,transpar
 const BG_SOFT = "bg-[color:color-mix(in_oklab,var(--foreground)_6%,transparent)]";
 const BG_SOFT2 = "bg-[color:color-mix(in_oklab,var(--foreground)_4%,transparent)]";
 
-const INPUT_BASE =
-  [
-    "w-full rounded-md border text-right px-3 py-2 text-sm font-mono transition-all duration-200",
-    "bg-[var(--input-bg)] text-[var(--input-text)]",
-    BORDER,
-    "placeholder:text-[color:color-mix(in_oklab,var(--foreground)_35%,transparent)]",
-    "focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500",
-  ].join(" ");
-
-export function ProposalInputsCard({ proposal, projectMeta, saving, onSave }: Props) {
+export function ProposalInputsCard({ proposal, projectMeta, saving, onSave, readOnly = false }: Props) {
   const [dirty, setDirty] = useState(false);
   
-  // Is this a linear route?
   const isRoute = projectMeta?.scope === 'route';
 
   const [form, setForm] = useState<ProposalDataPatch>({
@@ -68,11 +60,13 @@ export function ProposalInputsCard({ proposal, projectMeta, saving, onSave }: Pr
   }, [form]);
 
   const setField = (key: keyof ProposalDataPatch, value: any) => {
+    if (readOnly) return; // Block changes if readOnly
     setForm((prev) => ({ ...prev, [key]: value }));
     setDirty(true);
   };
 
   const handleSave = async () => {
+    if (readOnly) return;
     await onSave({
       ...form,
       paved_arid: n(form.paved_arid), paved_semi_arid: n(form.paved_semi_arid),
@@ -88,103 +82,105 @@ export function ProposalInputsCard({ proposal, projectMeta, saving, onSave }: Pr
   };
 
   return (
-    <div className={["rounded-2xl overflow-hidden shadow-sm border bg-[var(--surface-bg)]", BORDER].join(" ")}>
+    <div className={cn("rounded-2xl overflow-hidden shadow-sm border bg-[var(--surface-bg)]", BORDER, readOnly && "opacity-90")}>
       {/* Header Bar */}
-      <div className={["flex items-center justify-between px-6 py-4 border-b", BORDER_SOFT].join(" ")}>
+      <div className={cn("flex items-center justify-between px-6 py-4 border-b", BORDER_SOFT)}>
         <div>
           <h2 className="text-base font-semibold text-[var(--foreground)]">Proposal Inputs</h2>
-          <p className={["text-xs", TEXT_MUTED].join(" ")}>
+          <p className={cn("text-xs", TEXT_MUTED)}>
             {isRoute ? "Define specific conditions for this route." : "Enter base values per climate zone."}
           </p>
         </div>
 
-        <button
-          onClick={handleSave}
-          disabled={saving || !dirty}
-          className={[
-            "inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold shadow-sm transition-all",
-            dirty ? "bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-md hover:scale-105" : [BG_SOFT, TEXT_SOFT, "cursor-not-allowed"].join(" "),
-          ].join(" ")}
-        >
-          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : dirty ? <Save className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-          {saving ? "Saving..." : dirty ? "Save Changes" : "Saved"}
-        </button>
+        {/* Hide Save button if Read Only */}
+        {!readOnly ? (
+            <button
+            onClick={handleSave}
+            disabled={saving || !dirty}
+            className={cn(
+                "inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold shadow-sm transition-all",
+                dirty ? "bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-md hover:scale-105" : cn(BG_SOFT, TEXT_SOFT, "cursor-not-allowed")
+            )}
+            >
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : dirty ? <Save className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+            {saving ? "Saving..." : dirty ? "Save Changes" : "Saved"}
+            </button>
+        ) : (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-500 bg-slate-100 dark:bg-slate-800/50">
+               <EyeOff className="w-3.5 h-3.5" /> View Only
+            </div>
+        )}
       </div>
 
-      <div className="p-6 space-y-8">
+      <div className={cn("p-6 space-y-8", readOnly && "pointer-events-none")}>
         
         {/* CONDITIONAL RENDER: Route Summary vs Matrix Grid */}
         {isRoute ? (
-            <div className={["rounded-xl border p-6 bg-indigo-50/30 dark:bg-indigo-950/10 border-indigo-100 dark:border-indigo-900/50", BORDER_SOFT].join(" ")}>
+            <div className={cn("rounded-xl border p-6 bg-indigo-50/30 dark:bg-indigo-950/10 border-indigo-100 dark:border-indigo-900/50", BORDER_SOFT)}>
                 <div className="flex items-center gap-2 mb-5">
                     <RouteIcon className="w-5 h-5 text-indigo-500" />
                     <h3 className="text-base font-bold text-indigo-900 dark:text-indigo-400">Linear Asset Locked Parameters</h3>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                     <div>
-                        <span className={["block text-[10px] uppercase font-bold mb-1", TEXT_MUTED].join(" ")}>Route Designation</span>
+                        <span className={cn("block text-[10px] uppercase font-bold mb-1", TEXT_MUTED)}>Route Designation</span>
                         <span className="text-sm font-medium text-[var(--foreground)]">{projectMeta?.route_name || "N/A"}</span>
                     </div>
                     <div>
-                        <span className={["block text-[10px] uppercase font-bold mb-1", TEXT_MUTED].join(" ")}>Total Length</span>
+                        <span className={cn("block text-[10px] uppercase font-bold mb-1", TEXT_MUTED)}>Total Length</span>
                         <span className="text-sm font-mono font-medium text-[var(--foreground)]">{projectMeta?.route_length_km || 0} km</span>
                     </div>
                     <div>
-                        <span className={["block text-[10px] uppercase font-bold mb-1", TEXT_MUTED].join(" ")}>Surface Type</span>
+                        <span className={cn("block text-[10px] uppercase font-bold mb-1", TEXT_MUTED)}>Surface Type</span>
                         <span className="text-sm font-medium capitalize text-[var(--foreground)]">{projectMeta?.surface_type || "N/A"}</span>
                     </div>
                     <div>
-                        <span className={["block text-[10px] uppercase font-bold mb-1", TEXT_MUTED].join(" ")}>Climate Zone</span>
+                        <span className={cn("block text-[10px] uppercase font-bold mb-1", TEXT_MUTED)}>Climate Zone</span>
                         <span className="text-sm font-medium capitalize text-[var(--foreground)]">{(projectMeta?.climate_zone || "N/A").replace(/_/g, " ")}</span>
                     </div>
-                </div>
-                <div className="mt-5 pt-4 border-t border-indigo-100 dark:border-indigo-900/50 flex justify-between">
-                     <div className="text-xs text-indigo-600 dark:text-indigo-400">
-                         <strong>Segment:</strong> {projectMeta?.start_point || "Start"} → {projectMeta?.end_point || "End"}
-                     </div>
                 </div>
             </div>
         ) : (
             <div className="grid lg:grid-cols-2 gap-6">
                 {/* PAVED CARD */}
-                <div className={["rounded-xl border p-5", BG_SOFT2, BORDER_SOFT].join(" ")}>
-                    <div className={["flex items-center justify-between mb-4 pb-2 border-b", BORDER_SOFT].join(" ")}>
+                <div className={cn("rounded-xl border p-5", BG_SOFT2, BORDER_SOFT)}>
+                    <div className={cn("flex items-center justify-between mb-4 pb-2 border-b", BORDER_SOFT)}>
                     <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-emerald-400" />
                         <h3 className="text-sm font-semibold text-[var(--foreground)]">Paved</h3>
                     </div>
-                    <span className={["text-xs font-mono font-medium px-2 py-1 rounded border", BG_SOFT, BORDER_SOFT, TEXT_MUTED].join(" ")}>
+                    <span className={cn("text-xs font-mono font-medium px-2 py-1 rounded border", BG_SOFT, BORDER_SOFT, TEXT_MUTED)}>
                         Total: {totals.paved.toFixed(2)} km
                     </span>
                     </div>
 
                     <div className="space-y-3">
-                    <NumberField label="Arid" value={form.paved_arid} onChange={(v) => setField("paved_arid", v)} unit="km" />
-                    <NumberField label="Semi-arid" value={form.paved_semi_arid} onChange={(v) => setField("paved_semi_arid", v)} unit="km" />
-                    <NumberField label="Dry sub-humid" value={form.paved_dry_sub_humid} onChange={(v) => setField("paved_dry_sub_humid", v)} unit="km" />
-                    <NumberField label="Moist sub-humid" value={form.paved_moist_sub_humid} onChange={(v) => setField("paved_moist_sub_humid", v)} unit="km" />
-                    <NumberField label="Humid" value={form.paved_humid} onChange={(v) => setField("paved_humid", v)} unit="km" />
+                    <NumberField label="Arid" value={form.paved_arid} onChange={(v) => setField("paved_arid", v)} unit="km" disabled={readOnly} />
+                    <NumberField label="Semi-arid" value={form.paved_semi_arid} onChange={(v) => setField("paved_semi_arid", v)} unit="km" disabled={readOnly} />
+                    <NumberField label="Dry sub-humid" value={form.paved_dry_sub_humid} onChange={(v) => setField("paved_dry_sub_humid", v)} unit="km" disabled={readOnly} />
+                    <NumberField label="Moist sub-humid" value={form.paved_moist_sub_humid} onChange={(v) => setField("paved_moist_sub_humid", v)} unit="km" disabled={readOnly} />
+                    <NumberField label="Humid" value={form.paved_humid} onChange={(v) => setField("paved_humid", v)} unit="km" disabled={readOnly} />
                     </div>
                 </div>
 
                 {/* GRAVEL CARD */}
-                <div className={["rounded-xl border p-5", BG_SOFT2, BORDER_SOFT].join(" ")}>
-                    <div className={["flex items-center justify-between mb-4 pb-2 border-b", BORDER_SOFT].join(" ")}>
+                <div className={cn("rounded-xl border p-5", BG_SOFT2, BORDER_SOFT)}>
+                    <div className={cn("flex items-center justify-between mb-4 pb-2 border-b", BORDER_SOFT)}>
                     <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-amber-400" />
                         <h3 className="text-sm font-semibold text-[var(--foreground)]">Gravel</h3>
                     </div>
-                    <span className={["text-xs font-mono font-medium px-2 py-1 rounded border", BG_SOFT, BORDER_SOFT, TEXT_MUTED].join(" ")}>
+                    <span className={cn("text-xs font-mono font-medium px-2 py-1 rounded border", BG_SOFT, BORDER_SOFT, TEXT_MUTED)}>
                         Total: {totals.gravel.toFixed(2)} km
                     </span>
                     </div>
 
                     <div className="space-y-3">
-                    <NumberField label="Arid" value={form.gravel_arid} onChange={(v) => setField("gravel_arid", v)} unit="km" />
-                    <NumberField label="Semi-arid" value={form.gravel_semi_arid} onChange={(v) => setField("gravel_semi_arid", v)} unit="km" />
-                    <NumberField label="Dry sub-humid" value={form.gravel_dry_sub_humid} onChange={(v) => setField("gravel_dry_sub_humid", v)} unit="km" />
-                    <NumberField label="Moist sub-humid" value={form.gravel_moist_sub_humid} onChange={(v) => setField("gravel_moist_sub_humid", v)} unit="km" />
-                    <NumberField label="Humid" value={form.gravel_humid} onChange={(v) => setField("gravel_humid", v)} unit="km" />
+                    <NumberField label="Arid" value={form.gravel_arid} onChange={(v) => setField("gravel_arid", v)} unit="km" disabled={readOnly} />
+                    <NumberField label="Semi-arid" value={form.gravel_semi_arid} onChange={(v) => setField("gravel_semi_arid", v)} unit="km" disabled={readOnly} />
+                    <NumberField label="Dry sub-humid" value={form.gravel_dry_sub_humid} onChange={(v) => setField("gravel_dry_sub_humid", v)} unit="km" disabled={readOnly} />
+                    <NumberField label="Moist sub-humid" value={form.gravel_moist_sub_humid} onChange={(v) => setField("gravel_moist_sub_humid", v)} unit="km" disabled={readOnly} />
+                    <NumberField label="Humid" value={form.gravel_humid} onChange={(v) => setField("gravel_humid", v)} unit="km" disabled={readOnly} />
                     </div>
                 </div>
             </div>
@@ -192,69 +188,88 @@ export function ProposalInputsCard({ proposal, projectMeta, saving, onSave }: Pr
 
         {/* INDICATORS SECTION (Applies to both) */}
         <div>
-          <h3 className={["text-xs font-bold uppercase tracking-wider mb-3 ml-1", TEXT_SOFT].join(" ")}>
+          <h3 className={cn("text-xs font-bold uppercase tracking-wider mb-3 ml-1", TEXT_SOFT)}>
             {isRoute ? "Route Conditions" : "Key Indicators"}
           </h3>
 
-          <div className={["rounded-xl border p-5 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3", BG_SOFT2, BORDER].join(" ")}>
-            <NumberField label={isRoute ? "Specific VCI" : "Avg VCI used"} value={form.avg_vci_used} onChange={(v) => setField("avg_vci_used", v)} />
-            <NumberField label={isRoute ? "Daily Traffic (Veh-km)" : "Vehicle-km"} value={form.vehicle_km} onChange={(v) => setField("vehicle_km", v)} unit="km" />
+          <div className={cn("rounded-xl border p-5 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3", BG_SOFT2, BORDER)}>
+            <NumberField label={isRoute ? "Specific VCI" : "Avg VCI used"} value={form.avg_vci_used} onChange={(v) => setField("avg_vci_used", v)} disabled={readOnly} />
+            <NumberField label={isRoute ? "Daily Traffic (Veh-km)" : "Vehicle-km"} value={form.vehicle_km} onChange={(v) => setField("vehicle_km", v)} unit="km" disabled={readOnly} />
             
             {!isRoute && (
-               <NumberField label="% vehicle-km used" value={form.pct_vehicle_km_used} onChange={(v) => setField("pct_vehicle_km_used", v)} unit="%" />
+               <NumberField label="% vehicle-km used" value={form.pct_vehicle_km_used} onChange={(v) => setField("pct_vehicle_km_used", v)} unit="%" disabled={readOnly} />
             )}
             
-            <NumberField label="Fuel sales" value={form.fuel_sales} onChange={(v) => setField("fuel_sales", v)} unit="L" />
+            <NumberField label="Fuel sales" value={form.fuel_sales} onChange={(v) => setField("fuel_sales", v)} unit="L" disabled={readOnly} />
             
             {!isRoute && (
-               <NumberField label="% fuel sales used" value={form.pct_fuel_sales_used} onChange={(v) => setField("pct_fuel_sales_used", v)} unit="%" />
+               <NumberField label="% fuel sales used" value={form.pct_fuel_sales_used} onChange={(v) => setField("pct_fuel_sales_used", v)} unit="%" disabled={readOnly} />
             )}
 
             <SelectField
               label="Fuel option selected"
               value={String(form.fuel_option_selected ?? 1)}
               onChange={(v) => setField("fuel_option_selected", Number(v))}
+              disabled={readOnly}
               options={[{ label: "Option 1", value: "1" }, { label: "Option 2", value: "2" }, { label: "Option 3", value: "3" }]}
             />
 
-            <NumberField label="Target VCI" value={form.target_vci} onChange={(v) => setField("target_vci", v)} />
+            <NumberField label="Target VCI" value={form.target_vci} onChange={(v) => setField("target_vci", v)} disabled={readOnly} />
           </div>
         </div>
       </div>
 
-      {/* Footer Status Bar */}
-      <div className={["px-6 py-2 border-t flex justify-end", BG_SOFT2, BORDER_SOFT].join(" ")}>
-        {dirty ? (
-          <span className="text-[10px] text-amber-600 font-medium flex items-center gap-1">
-            <AlertCircle className="w-3 h-3" /> Unsaved Changes
-          </span>
-        ) : (
-          <span className={["text-[10px] font-medium flex items-center gap-1", TEXT_SOFT].join(" ")}>
-            All changes saved
-          </span>
-        )}
-      </div>
+      {/* Footer Status Bar - Hide if Read Only */}
+      {!readOnly && (
+        <div className={cn("px-6 py-2 border-t flex justify-end", BG_SOFT2, BORDER_SOFT)}>
+          {dirty ? (
+            <span className="text-[10px] text-amber-600 font-medium flex items-center gap-1">
+              <AlertCircle className="w-3 h-3" /> Unsaved Changes
+            </span>
+          ) : (
+            <span className={cn("text-[10px] font-medium flex items-center gap-1", TEXT_SOFT)}>
+              All changes saved
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-function NumberField({ label, value, onChange, unit }: { label: string; value: any; onChange: (v: number) => void; unit?: string; }) {
+const INPUT_BASE =
+  "w-full rounded-md border text-right px-3 py-2 text-sm font-mono transition-all duration-200 bg-[var(--input-bg)] text-[var(--input-text)] border-[color:color-mix(in_oklab,var(--foreground)_14%,transparent)] placeholder:text-[color:color-mix(in_oklab,var(--foreground)_35%,transparent)] focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-[color:color-mix(in_oklab,var(--foreground)_4%,transparent)]";
+
+function NumberField({ label, value, onChange, unit, disabled }: { label: string; value: any; onChange: (v: number) => void; unit?: string; disabled?: boolean }) {
   return (
     <div className="flex items-center justify-between gap-4">
-      <label className={["text-xs font-medium whitespace-nowrap", TEXT_MUTED].join(" ")}>{label}</label>
+      <label className={cn("text-xs font-medium whitespace-nowrap", TEXT_MUTED)}>{label}</label>
       <div className="relative w-28 sm:w-32">
-        <input type="number" inputMode="decimal" className={`${INPUT_BASE} ${unit ? "pr-8" : ""}`} value={value ?? 0} onFocus={(e) => e.target.select()} onChange={(e) => onChange(Number(e.target.value))} />
-        {unit && <span className={["absolute right-3 top-1/2 -translate-y-1/2 text-[10px] pointer-events-none", TEXT_SOFT].join(" ")}>{unit}</span>}
+        <input 
+          type="number" 
+          inputMode="decimal" 
+          className={cn(INPUT_BASE, unit ? "pr-8" : "")} 
+          value={value ?? 0} 
+          onFocus={(e) => !disabled && e.target.select()} 
+          onChange={(e) => onChange(Number(e.target.value))} 
+          disabled={disabled}
+        />
+        {unit && <span className={cn("absolute right-3 top-1/2 -translate-y-1/2 text-[10px] pointer-events-none", TEXT_SOFT)}>{unit}</span>}
       </div>
     </div>
   );
 }
 
-function SelectField({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: { label: string; value: string }[]; }) {
+function SelectField({ label, value, onChange, options, disabled }: { label: string; value: string; onChange: (v: string) => void; options: { label: string; value: string }[]; disabled?: boolean }) {
   return (
     <div className="flex items-center justify-between gap-4">
-      <label className={["text-xs font-medium", TEXT_MUTED].join(" ")}>{label}</label>
-      <select className={`${INPUT_BASE} w-28 sm:w-32 cursor-pointer`} value={value} onChange={(e) => onChange(e.target.value)}>
+      <label className={cn("text-xs font-medium", TEXT_MUTED)}>{label}</label>
+      <select 
+         className={cn(INPUT_BASE, "w-28 sm:w-32", !disabled && "cursor-pointer")} 
+         value={value} 
+         onChange={(e) => onChange(e.target.value)}
+         disabled={disabled}
+      >
         {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
     </div>

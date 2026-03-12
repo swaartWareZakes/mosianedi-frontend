@@ -27,7 +27,9 @@ import {
   TrendingUp,
   BarChart3,
   LineChart,
-  PieChart
+  PieChart,
+  User,       
+  Settings
 } from "lucide-react";
 
 type Profile = {
@@ -343,6 +345,31 @@ export function Sidebar() {
           active={pathname === "/presentationmode"}
           open={open}
         />
+
+     <SimpleLink
+          href="/presentationmode"
+          icon={<Presentation className="w-5 h-5" />}
+          label="Boardroom Mode"
+          active={pathname === "/presentationmode"}
+          open={open}
+        />
+
+        {/* --- ADD PROFILE & SETTINGS HERE --- */}
+        <SimpleLink
+          href="/profile"
+          icon={<User className="w-5 h-5" />}
+          label="My Profile"
+          active={pathname === "/profile"}
+          open={open}
+        />
+        <SimpleLink
+          href="/settings"
+          icon={<Settings className="w-5 h-5" />}
+          label="Settings"
+          active={pathname === "/settings"}
+          open={open}
+        />
+      
       </nav>
 
       {/* FOOTER */}

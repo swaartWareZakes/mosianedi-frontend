@@ -45,27 +45,41 @@ export default function ProjectsPage() {
 
   async function loadData() {
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
       router.replace("/login");
       return;
     }
-    setCurrentUser(user.id);
+    setCurrentUser(session.user.id);
 
-    const { data: projectsData } = await supabase.from("projects").select("*").order("created_at", { ascending: false });
-    const { data: profilesData } = await supabase.from("profiles").select("*");
+    try {
+      // 1. Fetch Projects from our updated Python API (Bypasses Supabase RLS hiding)
+      const res = await fetch(`${API_BASE_URL}/api/v1/projects`, {
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      });
+      
+      if (!res.ok) throw new Error("Failed to fetch projects");
+      const projectsData = await res.json();
 
-    const profileMap = new Map(profilesData?.map((p: any) => [p.user_id, p]));
+      // 2. Fetch Profiles from Supabase to map the Owner Names
+      const { data: profilesData } = await supabase.from("profiles").select("*");
+      const profileMap = new Map(profilesData?.map((p: any) => [p.user_id, p]));
 
-    const merged: Project[] = (projectsData || []).map((p: any) => ({
-      ...p,
-      status: p.status || "backlog",
-      scope: p.scope || "provincial", 
-      assignee: p.assignee_id ? profileMap.get(p.assignee_id) : undefined,
-    }));
+      // 3. Merge them together
+      const merged: Project[] = (projectsData || []).map((p: any) => ({
+        ...p,
+        status: p.status || "backlog",
+        scope: p.scope || "provincial", 
+        assignee: p.assignee_id ? profileMap.get(p.assignee_id) : undefined,
+        owner: profileMap.get(p.user_id) 
+      }));
 
-    setProjects(merged);
-    setLoading(false);
+      setProjects(merged);
+    } catch (err) {
+      console.error("Error loading projects:", err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { loadData(); }, []);
@@ -90,16 +104,13 @@ export default function ProjectsPage() {
 
   const filteredProjects = useMemo(() => {
     return projects.filter((p) => {
-      // 1. Search Filter (Now includes route_name)
       const searchable = `${p.project_name} ${p.province} ${p.municipality || ''} ${p.local_area || ''} ${p.route_name || ''}`.toLowerCase();
       if (!searchable.includes(search.toLowerCase())) return false;
 
-      // 2. Scope Filter
       if (scopeFilter !== "all" && p.scope !== scopeFilter) return false;
 
-      // 3. Tab Filter
       if (activeTab === "all") return true;
-      if (activeTab === "mine") return p.assignee_id === currentUser;
+      if (activeTab === "mine") return p.user_id === currentUser;
       if (activeTab === "backlog") return !p.status || p.status === "backlog";
       return p.status === activeTab;
     });

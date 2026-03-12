@@ -29,6 +29,7 @@ export type Project = {
   status: "draft" | "backlog" | "planning" | "review" | "published" | "archived";
   created_at: string;
   assignee?: Profile;
+  owner?: Profile; // CRITICAL FIX: Added owner to the type
   assignee_id: string | null;
   user_id: string;
 };
@@ -73,6 +74,9 @@ export function ProjectCard({
   const formattedDate = project.created_at ? new Date(project.created_at).toLocaleDateString() : "N/A";
   const isOwner = currentUserId === project.user_id;
 
+  // Derive Owner Name
+  const creatorName = project.owner ? `${project.owner.first_name} ${project.owner.last_name}` : "System Admin";
+
   // Format the location string based on scope
   let locationString = project.province;
   if (project.scope === 'route') {
@@ -105,8 +109,10 @@ export function ProjectCard({
              <h3 className="font-bold text-base text-[var(--foreground)] truncate group-hover:text-[var(--accent-color)] transition-colors">
                {project.project_name}
              </h3>
-             <div className={cn("flex items-center gap-2 text-xs mt-0.5 truncate", TEXT_MUTED)}>
-                <span className="font-medium text-[var(--foreground)] truncate max-w-[250px]">{locationString}</span>
+             <div className={cn("flex items-center gap-2 text-[10px] mt-1 truncate", TEXT_MUTED)}>
+                <span className="font-bold uppercase bg-[color:color-mix(in_oklab,var(--accent-color)_10%,transparent)] px-1.5 py-0.5 rounded text-[var(--accent-color)]">By {creatorName}</span>
+                <span className={TEXT_SOFT}>•</span>
+                <span className="truncate max-w-[250px]">{locationString}</span>
                 <span className={TEXT_SOFT}>•</span>
                 <span>FY{project.start_year}</span>
              </div>
@@ -163,7 +169,10 @@ export function ProjectCard({
           <h3 className={cn("font-bold text-lg mb-1 line-clamp-1 transition-colors text-[var(--foreground)] group-hover:text-[var(--accent-color)]")}>
             {project.project_name}
           </h3>
-          <div className={cn("flex flex-col gap-1 text-xs", TEXT_MUTED)}>
+          <div className={cn("flex flex-col gap-1 text-[10px]", TEXT_MUTED)}>
+            <span className="font-bold uppercase tracking-wide flex items-center gap-1">
+               <User className="w-3 h-3" /> {creatorName}
+            </span>
             <span className={cn("font-medium text-[var(--foreground)] line-clamp-1")} title={locationString}>
               {locationString}
             </span>

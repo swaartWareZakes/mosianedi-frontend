@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
-// 1. We define the expanded shape of the data here
 export type ProjectScope = "provincial" | "municipal" | "local" | "route";
 
 export type ProjectMeta = {
   id: string;
+  user_id: string; 
   province: string;
   start_year: number;
   project_name: string;
@@ -22,13 +22,19 @@ export type ProjectMeta = {
   climate_zone?: string;
   route_specific_vci?: number;
   route_daily_traffic?: number;
+  owner?: { first_name: string; last_name: string; email: string };
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL;
+export interface UseProjectMetaReturn {
+  data: ProjectMeta | null;
+  loading: boolean;
+  hasAccess: boolean | null;
+}
 
-export function useProjectMeta(projectId: string) {
+export function useProjectMeta(projectId: string): UseProjectMetaReturn {
   const [data, setData] = useState<ProjectMeta | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
 
   const fetchMeta = useCallback(async () => {
     if (!projectId) return;
@@ -36,19 +42,39 @@ export function useProjectMeta(projectId: string) {
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) return;
+      const currentUser = session?.user;
+      
+      if (!currentUser) {
+        setHasAccess(false);
+        return;
+      }
 
-      const res = await fetch(`${API_BASE}/api/v1/projects/${projectId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      // CRITICAL FIX: Added !projects_user_id_fkey to resolve the ambiguous join!
+      const { data: project, error } = await supabase
+        .from("projects")
+        .select(`
+          *,
+          owner:profiles!projects_user_id_fkey(first_name, last_name, email),
+          collaborators:project_collaborators(user_id)
+        `)
+        .eq("id", projectId)
+        .single();
 
-      if (res.ok) {
-        const json = await res.json();
-        setData(json);
+      if (error) throw error;
+
+      if (project) {
+        setData(project);
+
+        const userEmail = currentUser.email?.toLowerCase();
+        const isOwner = project.user_id === currentUser.id;
+        const isSuperAdmin = userEmail === "tholang@gmail.com" || userEmail === "rfgadmin@rfgsolutions.co.za";
+        const isCollaborator = project.collaborators?.some((c: any) => c.user_id === currentUser.id) || false;
+
+        setHasAccess(isOwner || isSuperAdmin || isCollaborator);
       }
     } catch (err) {
-      console.error("Failed to fetch project meta", err);
+      console.error("Failed to fetch project meta or check access", err);
+      setHasAccess(false);
     } finally {
       setLoading(false);
     }
@@ -58,5 +84,5 @@ export function useProjectMeta(projectId: string) {
     fetchMeta();
   }, [fetchMeta]);
 
-  return { data, loading };
+  return { data, loading, hasAccess };
 }

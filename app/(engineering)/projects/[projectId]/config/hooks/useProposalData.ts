@@ -5,7 +5,6 @@ import { supabase } from "@/lib/supabaseClient";
 import { API_BASE_URL } from "@/lib/config";
 import type { ProposalData, ProposalDataPatch } from "../types";
 
-// ✅ FIXED: proposal-data lives under /projects/{projectId}/...
 const ENDPOINT = (projectId: string) =>
   `${API_BASE_URL}/api/v1/projects/${projectId}/proposal-data`;
 
