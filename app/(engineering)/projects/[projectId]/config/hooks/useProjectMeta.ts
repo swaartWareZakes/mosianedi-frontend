@@ -67,7 +67,7 @@ export function useProjectMeta(projectId: string): UseProjectMetaReturn {
 
         const userEmail = currentUser.email?.toLowerCase();
         const isOwner = project.user_id === currentUser.id;
-        const isSuperAdmin = userEmail === "tholang@gmail.com" || userEmail === "rfgadmin@rfgsolutions.co.za";
+        const isSuperAdmin = userEmail === "rfgadmin@rfgsolutions.co.za";
         const isCollaborator = project.collaborators?.some((c: any) => c.user_id === currentUser.id) || false;
 
         setHasAccess(isOwner || isSuperAdmin || isCollaborator);
