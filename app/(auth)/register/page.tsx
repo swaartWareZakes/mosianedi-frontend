@@ -72,8 +72,8 @@ export default function RegisterPage() {
     const lowerDept = department.toLowerCase();
     const lowerTitle = title.toLowerCase();
 
-    // A. Master Admin Check
-    if (lowerEmail === "rfgadmin@rfgsolutions.co.za") {
+    // A. Master Admin Check (Updated to include tholang@gmail.com)
+    if (lowerEmail === "rfgadmin@rfgsolutions.co.za" || lowerEmail === "tholang@gmail.com") {
         assignedRole = "super_admin";
     }
     // B. Finance / Decision Maker Check
