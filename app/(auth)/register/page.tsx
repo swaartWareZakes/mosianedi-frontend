@@ -4,25 +4,26 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
-// --- UPDATED: Added Treasury & Finance options to trigger Backend Roles ---
+// --- UPDATED: Removed Treasury, refined for Consulting/Decision Makers ---
 const DEPARTMENTS = [
   "Planning",
   "Design",
   "Construction",
   "Maintenance",
   "Asset Management",
-  "Provincial Treasury", // <--- CRITICAL: Triggers 'treasury' role
-  "Strategic Finance",   // <--- CRITICAL: Triggers 'treasury' role
+  "Strategic Finance",    // Triggers 'finance' role
+  "Executive Management", // Triggers 'senior_engineer' role
 ];
 
 const JOB_TITLES = [
   "Roads Design Engineer",
   "Pavement Engineer",
   "Transportation Planner",
-  "Project Manager",
+  "Project Manager",        // Triggers 'senior_engineer' role
   "Asset Management Specialist",
-  "Budget Analyst",      // <--- Added for realism
-  "Chief Financial Officer" // <--- Added for realism
+  "Budget Analyst",         // Triggers 'finance' role
+  "Chief Financial Officer",// Triggers 'finance' role
+  "Technical Director"      // Triggers 'senior_engineer' role
 ];
 
 export default function RegisterPage() {
@@ -50,7 +51,7 @@ export default function RegisterPage() {
 
     setSubmitting(true);
 
-    // 1. Create Auth User
+    // 1. Create Auth User securely
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
@@ -64,7 +65,27 @@ export default function RegisterPage() {
 
     const user = data.user;
 
-    // 2. Create Profile (This sets the Department -> Role)
+    // 2. SMART RBAC ASSIGNMENT
+    let assignedRole = "engineer"; // Default baseline role
+
+    const lowerEmail = email.toLowerCase().trim();
+    const lowerDept = department.toLowerCase();
+    const lowerTitle = title.toLowerCase();
+
+    // A. Master Admin Check
+    if (lowerEmail === "rfgadmin@rfgsolutions.co.za") {
+        assignedRole = "super_admin";
+    }
+    // B. Finance / Decision Maker Check
+    else if (lowerDept.includes("finance") || lowerTitle.includes("financial") || lowerTitle.includes("budget")) {
+        assignedRole = "finance";
+    } 
+    // C. Senior Reviewer Check
+    else if (lowerTitle.includes("manager") || lowerTitle.includes("director") || lowerDept.includes("executive")) {
+        assignedRole = "senior_engineer";
+    }
+
+    // 3. Create Profile with the derived role
     const { error: profileError } = await supabase.from("profiles").insert({
       user_id: user.id,
       first_name: firstName,
@@ -73,6 +94,7 @@ export default function RegisterPage() {
       email,
       department,
       title,
+      role: assignedRole 
     });
 
     setSubmitting(false);
@@ -82,7 +104,7 @@ export default function RegisterPage() {
       return;
     }
 
-    // 3. Redirect
+    // 4. Redirect
     router.replace("/projects");
   };
 
@@ -136,7 +158,7 @@ export default function RegisterPage() {
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             className="w-full rounded-xl border border-slate-300 bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--input-text)] placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:focus:ring-sky-800/40"
-            placeholder="jabu.mosianedi"
+            placeholder="e.g. jabu.mosianedi"
           />
         </div>
 
@@ -149,7 +171,7 @@ export default function RegisterPage() {
             <select
               value={department}
               onChange={(e) => setDepartment(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--input-text)] focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:focus:ring-sky-800/40"
+              className="w-full rounded-xl border border-slate-300 bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--input-text)] focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:focus:ring-sky-800/40 cursor-pointer"
             >
               {DEPARTMENTS.map((d) => (
                 <option key={d} value={d}>{d}</option>
@@ -164,7 +186,7 @@ export default function RegisterPage() {
             <select
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--input-text)] focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:focus:ring-sky-800/40"
+              className="w-full rounded-xl border border-slate-300 bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--input-text)] focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:focus:ring-sky-800/40 cursor-pointer"
             >
               {JOB_TITLES.map((t) => (
                 <option key={t} value={t}>{t}</option>
@@ -176,7 +198,7 @@ export default function RegisterPage() {
         {/* Email */}
         <div>
           <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            Email
+            Email Address
           </label>
           <input
             type="email"
@@ -185,7 +207,7 @@ export default function RegisterPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full rounded-xl border border-slate-300 bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--input-text)] placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:focus:ring-sky-800/40"
-            placeholder="you@example.com"
+            placeholder="you@domain.com"
           />
         </div>
 
@@ -220,19 +242,19 @@ export default function RegisterPage() {
           </div>
         </div>
 
-        {error && <p className="text-xs text-red-500">{error}</p>}
+        {error && <p className="text-xs text-red-500 font-medium">{error}</p>}
 
         <button
           type="submit"
           disabled={submitting}
-          className="mt-2 inline-flex w-full items-center justify-center rounded-xl bg-[var(--accent-color)] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70 transition"
+          className="mt-2 inline-flex w-full items-center justify-center rounded-xl bg-[var(--accent-color)] px-4 py-3 text-sm font-bold text-white shadow-sm hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70 transition-all active:scale-[0.98]"
         >
           {submitting ? "Creating account..." : "Sign up"}
         </button>
       </form>
 
       <p className="mt-4 text-center text-xs text-slate-500 dark:text-slate-400">
-        Already have an account? <button type="button" onClick={() => router.push("/login")} className="font-medium text-[var(--accent-color)] hover:underline">Sign in</button>
+        Already have an account? <button type="button" onClick={() => router.push("/login")} className="font-bold text-[var(--accent-color)] hover:underline">Sign in</button>
       </p>
     </div>
   );

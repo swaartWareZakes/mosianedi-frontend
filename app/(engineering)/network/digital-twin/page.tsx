@@ -4,125 +4,97 @@ import React, { Suspense, useState, useEffect } from "react";
 import { Loader2, ChevronDown } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { NetworkInspector } from "../components/NetworkInspector";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL;
-
-type Project = {
-  id: string;
-  project_name?: string;
-  name?: string;
-  province?: string;
-  proposal_title?: string;
-
-  // existing / common fields you already used
-  avg_vci_used?: number;
-
-  // OPTIONAL if your backend already has it
-  avg_iri_used?: number;
-
-  surface_type?: string; // "paved" | "gravel"
-  segment_name?: string;
-};
-
-function vciToIri(vci?: number) {
-  if (typeof vci !== "number") return 3.5;
-  // simple mapping: IRI approx 0–10 from VCI 100–0
-  return Math.max(1, Math.min(10, (100 - vci) / 10));
-}
+import { API_BASE_URL } from "@/lib/config";
 
 export default function NetworkSimulationPage() {
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
-  const [activeProject, setActiveProject] = useState<Project | null>(null);
+  const [activeProject, setActiveProject] = useState<any>(null);
 
-  // 1) Fetch Projects List
+  // 1) Fetch Projects List for Dropdown
   useEffect(() => {
     let cancelled = false;
 
     async function fetchProjects() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      const res = await fetch(`${API_BASE}/api/v1/projects`, {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${API_BASE_URL}/api/v1/projects`, {
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
 
       if (!res.ok) return;
-
-      const data: Project[] = await res.json();
+      const data = await res.json();
       if (cancelled) return;
 
       setProjects(data);
-
-      // Pick first project by default if none selected
       if (data.length > 0) setSelectedProjectId(data[0].id);
     }
 
     fetchProjects();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
-  // 2) Fetch Project Metadata + Simulation Findings
+  // 2) Fetch Project Metadata + Network Snapshot (for VCI)
   useEffect(() => {
     if (!selectedProjectId) return;
-
     let cancelled = false;
 
     async function fetchProjectDetails() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = { Authorization: `Bearer ${session?.access_token}` };
 
-      const res = await fetch(`${API_BASE}/api/v1/projects/${selectedProjectId}`, {
-        headers: { Authorization: `Bearer ${session?.access_token}` },
-      });
+      try {
+        // Fetch project metadata AND the aggregated network stats simultaneously
+        const [projectRes, snapshotRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/v1/projects/${selectedProjectId}`, { headers }),
+          fetch(`${API_BASE_URL}/api/v1/projects/${selectedProjectId}/network/snapshot`, { headers })
+        ]);
 
-      if (!res.ok) return;
+        if (projectRes.ok && snapshotRes.ok) {
+          const projectData = await projectRes.json();
+          const snapshotData = await snapshotRes.json();
+          
+          if (cancelled) return;
 
-      const data: Project = await res.json();
-      if (cancelled) return;
-
-      setActiveProject(data);
+          // Merge the name and the VCI into one object for the UI
+          setActiveProject({
+            ...projectData,
+            avg_vci_used: snapshotData.avgVci,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to load project details:", err);
+      }
     }
 
     fetchProjectDetails();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [selectedProjectId]);
 
-  const segmentIRI =
-    typeof activeProject?.avg_iri_used === "number"
-      ? activeProject.avg_iri_used
-      : vciToIri(activeProject?.avg_vci_used);
-
-  const surface = (activeProject?.surface_type as any) || "paved";
+  // Convert VCI (100 to 0) into IRI Roughness (1 to 10) for the 3D Engine
+  const segmentIRI = activeProject?.avg_vci_used
+    ? Math.max(1, Math.min(10, (100 - activeProject.avg_vci_used) / 10))
+    : 3.5;
 
   return (
     <div className="h-screen w-full bg-slate-950 overflow-hidden flex flex-col">
       <div className="z-[100] p-5 bg-slate-900/90 backdrop-blur-md border-b border-white/10 flex items-center justify-between">
         <div className="flex flex-col">
           <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5 ml-1">
-            Network Simulation
+            Network Project Selector
           </label>
-
           <div className="relative">
             <select
               value={selectedProjectId}
               onChange={(e) => setSelectedProjectId(e.target.value)}
-              className="bg-slate-800 text-white text-sm font-bold py-2.5 pl-4 pr-12 rounded-2xl appearance-none border border-white/5 hover:border-sky-500 outline-none shadow-xl min-w-[300px]"
+              className="bg-slate-800 text-white text-sm font-bold py-2.5 pl-4 pr-12 rounded-2xl appearance-none border border-white/5 hover:border-sky-500 outline-none shadow-xl min-w-[300px] cursor-pointer"
             >
-              <option value="">Choose Project...</option>
+              <option value="" disabled>Choose Project...</option>
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.project_name || p.name || "Untitled Project"}
+                  {p.project_name} {/* Explicitly mapping backend field */}
                 </option>
               ))}
             </select>
-
             <ChevronDown className="absolute right-4 top-3.5 w-4 h-4 text-slate-400 pointer-events-none" />
           </div>
         </div>
@@ -137,13 +109,14 @@ export default function NetworkSimulationPage() {
           }
         >
           <NetworkInspector
-            projectName={activeProject?.project_name || activeProject?.name || "Active Simulation"}
+            // Pass the exact backend keys to unlock the button
+            projectName={activeProject?.project_name || "Active Simulation"}
             province={activeProject?.province || "Unknown Province"}
-            proposalName={activeProject?.proposal_title || "Simulation Baseline"}
+            proposalName={activeProject?.status === "published" ? "Approved Baseline" : "Draft Baseline"}
             selectedSegment={{
               iri: segmentIRI,
-              surface,
-              name: activeProject?.segment_name || "Primary Network Segment",
+              surface: "paved",
+              name: "Primary Network Segment",
             }}
           />
         </Suspense>

@@ -11,13 +11,13 @@ import {
   ChevronDown,
   ChevronsLeft,
   ChevronsRight,
+  LayoutDashboard,
   LogOut,
   Presentation,
   Clock,
   FileText,
   ShieldAlert,
   Briefcase,
-  LayoutDashboard,
   Layers,
   FileCheck,
   Sparkles,
@@ -25,6 +25,9 @@ import {
   Map,
   Truck,
   TrendingUp,
+  BarChart3,
+  LineChart,
+  PieChart
 } from "lucide-react";
 
 type Profile = {
@@ -56,12 +59,22 @@ function NavGroup({
   onToggle,
   children,
   sidebarOpen,
+  mainHref,
 }: any) {
+  const router = useRouter();
+
+  const handleClick = (e: React.MouseEvent) => {
+    onToggle();
+    if (mainHref) {
+      router.push(mainHref);
+    }
+  };
+
   if (!sidebarOpen) {
     return (
       <div className="relative group">
         <button
-          onClick={onToggle}
+          onClick={handleClick}
           className={cn(
             "flex w-full items-center justify-center p-3 rounded-xl transition-colors",
             active ? `${SIDEBAR.activeSolid} shadow-md` : `${SIDEBAR.muted} ${SIDEBAR.hover}`
@@ -69,7 +82,6 @@ function NavGroup({
         >
           {icon}
         </button>
-
         <div
           className={cn(
             "absolute left-16 top-2 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 whitespace-nowrap",
@@ -85,7 +97,7 @@ function NavGroup({
   return (
     <div className="space-y-1">
       <button
-        onClick={onToggle}
+        onClick={handleClick}
         className={cn(
           "w-full flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
           active
@@ -111,7 +123,7 @@ function NavGroup({
       {expanded && (
         <div
           className={cn(
-            "ml-4 pl-3 border-l-2 space-y-1 mt-1 animate-in slide-in-from-left-1 duration-200",
+            "ml-4 pl-3 border-l-2 space-y-1 mt-1 animate-in slide-in-from-top-2 duration-200",
             "border-[color:color-mix(in_oklab,var(--foreground)_12%,transparent)]"
           )}
         >
@@ -124,7 +136,7 @@ function NavGroup({
 
 function NavItem({ href, label, icon }: any) {
   const pathname = usePathname();
-  const isActive = href ? pathname === href || pathname.startsWith(`${href}?`) : false;
+  const isActive = href ? pathname === href : false;
 
   return (
     <Link
@@ -181,14 +193,13 @@ export function Sidebar() {
   const projectId = Array.isArray(params?.projectId) ? params?.projectId[0] : (params?.projectId as string | undefined);
 
   const [projectsOpen, setProjectsOpen] = useState(true);
+  const [analyticsOpen, setAnalyticsOpen] = useState(true);
   const [reportingOpen, setReportingOpen] = useState(true);
   const [networkOpen, setNetworkOpen] = useState(true);
 
   useEffect(() => {
     const loadProfile = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       const { data } = await supabase.from("profiles").select("*").eq("user_id", user.id).single();
       if (data) setProfile(data as Profile);
@@ -208,17 +219,13 @@ export function Sidebar() {
     setOpen(!open);
     if (open) {
       setProjectsOpen(false);
+      setAnalyticsOpen(false);
       setReportingOpen(false);
       setNetworkOpen(false);
     }
   };
 
-  const dashboardHref = projectId ? `/projects/${projectId}/dashboard` : "/dashboard";
   const advisorHref = projectId ? `/projects/${projectId}/advisor` : "/advisor";
-
-  const executiveCaseHref = "/reports/treasury-view";
-  const engineeringProgHref = "/reports/budget";
-  const reportsBuilderHref = "/reports";
 
   return (
     <aside
@@ -247,10 +254,11 @@ export function Sidebar() {
 
       {/* NAV */}
       <nav className="flex-1 space-y-1 p-3 overflow-y-auto no-scrollbar">
+        
         <NavGroup
           label="Projects"
           icon={<FolderKanban className="w-5 h-5" />}
-          active={pathname.includes("/projects") || pathname.includes("/advisor")}
+          active={pathname.includes("/projects") && !pathname.includes("/dashboard")}
           expanded={projectsOpen}
           onToggle={() => {
             if (!open) setOpen(true);
@@ -268,13 +276,35 @@ export function Sidebar() {
           />
         </NavGroup>
 
-        <SimpleLink
-          href={dashboardHref}
-          icon={<LayoutDashboard className="w-5 h-5" />}
-          label="Dashboard"
+        {/* --- DYNAMIC ANALYTICS WORKSPACE (Unified) --- */}
+        <NavGroup
+          label="Analytics Workspace"
+          icon={<BarChart3 className="w-5 h-5" />}
           active={pathname.includes("/dashboard")}
-          open={open}
-        />
+          expanded={analyticsOpen}
+          onToggle={() => {
+            if (!open) setOpen(true);
+            setAnalyticsOpen(!analyticsOpen);
+          }}
+          sidebarOpen={open}
+        >
+          {/* Universal Dashboard Link */}
+          <NavItem 
+             href={projectId ? `/projects/${projectId}/dashboard` : "/dashboard"} 
+             label="Dashboard" 
+             icon={<LayoutDashboard className="w-3 h-3" />} 
+          />
+          <NavItem 
+             href={projectId ? `/projects/${projectId}/dashboard/compare` : "/dashboard/compare"} 
+             label="Comparative Analysis" 
+             icon={<LineChart className="w-3 h-3" />} 
+          />
+          <NavItem 
+             href={projectId ? `/projects/${projectId}/dashboard/lifecycle` : "/dashboard/lifecycle"} 
+             label="Apportionment" 
+             icon={<PieChart className="w-3 h-3" />} 
+          />
+        </NavGroup>
 
         <NavGroup
           label="Network & GIS"
@@ -292,7 +322,7 @@ export function Sidebar() {
         </NavGroup>
 
         <NavGroup
-          label="Provincial Reporting"
+          label="Reporting"
           icon={<Briefcase className="w-5 h-5" />}
           active={pathname.includes("/reports")}
           expanded={reportingOpen}
@@ -302,9 +332,8 @@ export function Sidebar() {
           }}
           sidebarOpen={open}
         >
-          <NavItem href={executiveCaseHref} label="Executive Case" icon={<Presentation className="w-3 h-3" />} />
-          <NavItem href={engineeringProgHref} label="Engineering Prog." icon={<Wallet className="w-3 h-3" />} />
-          <NavItem href={reportsBuilderHref} label="Submission Builder" icon={<FileCheck className="w-3 h-3" />} />
+          <NavItem href="/reports/budget" label="Engineering Prog." icon={<Wallet className="w-3 h-3" />} />
+          <NavItem href="/reports" label="Submission Builder" icon={<FileCheck className="w-3 h-3" />} />
         </NavGroup>
 
         <SimpleLink

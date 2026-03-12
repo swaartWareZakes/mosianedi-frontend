@@ -3,12 +3,25 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
-// 1. We define the shape of the data here
-type ProjectMeta = {
+// 1. We define the expanded shape of the data here
+export type ProjectScope = "provincial" | "municipal" | "local" | "route";
+
+export type ProjectMeta = {
   id: string;
   province: string;
   start_year: number;
-  project_name: string; // <--- ADDED THIS
+  project_name: string;
+  scope: ProjectScope;
+  municipality?: string;
+  local_area?: string;
+  route_name?: string;
+  start_point?: string;
+  end_point?: string;
+  route_length_km?: number;
+  surface_type?: string;
+  climate_zone?: string;
+  route_specific_vci?: number;
+  route_daily_traffic?: number;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL;

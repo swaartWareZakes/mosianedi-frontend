@@ -80,11 +80,9 @@ export default function ProjectGovernancePage() {
     async function loadData() {
       if (!projectId) return;
 
-      // Get Current User
       const { data: { user } } = await supabase.auth.getUser();
       setCurrentUser(user?.id || null);
 
-      // A. Fetch Project
       const { data: proj } = await supabase
         .from("projects")
         .select("id, project_name, status, assignee_id, user_id, locked")
@@ -93,8 +91,6 @@ export default function ProjectGovernancePage() {
       
       if (proj) setProject(proj as any);
 
-      // B. Fetch Collaborators (New Table)
-      // Note: We use the join syntax here because RLS is now open
       const { data: collabData } = await supabase
         .from("project_collaborators")
         .select(`
@@ -105,7 +101,6 @@ export default function ProjectGovernancePage() {
       
       if (collabData) setCollaborators(collabData as any);
 
-      // C. Fetch All Profiles (for dropdowns)
       const { data: users } = await supabase
         .from("profiles")
         .select("*")
@@ -113,9 +108,7 @@ export default function ProjectGovernancePage() {
       
       if (users) setAllUsers(users);
 
-      // D. Fetch Logs
       fetchLogs();
-
       setLoading(false);
     }
     loadData();
@@ -135,7 +128,6 @@ export default function ProjectGovernancePage() {
   };
 
   // --- ACTIONS ---
-
   const updateStatus = async (newStatus: string) => {
     if (!project || !projectId) return;
     setProject({ ...project, status: newStatus as any });
@@ -164,13 +156,11 @@ export default function ProjectGovernancePage() {
   const addCollaborator = async (userId: string) => {
       if (!projectId || !userId) return;
 
-      // 1. Add to DB
       const { error } = await supabase
           .from("project_collaborators")
           .insert({ project_id: projectId, user_id: userId, role: 'editor' });
 
       if (!error) {
-          // 2. Refresh List Locally
           const userProfile = allUsers.find(u => u.user_id === userId);
           if (userProfile) {
               setCollaborators([...collaborators, { 
@@ -188,7 +178,6 @@ export default function ProjectGovernancePage() {
   const removeCollaborator = async (userId: string) => {
       if (!projectId) return;
       
-      // Optimistic Remove
       setCollaborators(collaborators.filter(c => c.user_id !== userId));
 
       await supabase
@@ -211,41 +200,39 @@ export default function ProjectGovernancePage() {
       fetchLogs();
   };
 
-  if (loading || !project) return <div className="p-12 flex justify-center text-slate-500"><Loader2 className="animate-spin" /></div>;
+  if (loading || !project) return <div className="p-12 flex justify-center text-[color:color-mix(in_oklab,var(--foreground)_50%,transparent)]"><Loader2 className="animate-spin w-8 h-8" /></div>;
 
   const currentStepIndex = steps.findIndex(s => s.id === project.status);
-  
-  // Filter available users for "Add Collaborator" (Exclude current lead + existing collabs)
   const availableUsers = allUsers.filter(u => 
       u.user_id !== project.assignee_id && 
       !collaborators.some(c => c.user_id === u.user_id)
   );
 
   return (
-    <div className="h-full w-full bg-[var(--background)] overflow-y-auto">
+    <div className="h-full w-full bg-[var(--background)] overflow-y-auto flex flex-col">
         
-        <div className="sticky top-0 z-10 bg-[var(--background)]">
-            {projectId && <ProjectNavBar projectId={projectId} />}
-        </div>
+        {projectId && <ProjectNavBar projectId={projectId} />}
 
-        <div className="p-8 max-w-5xl mx-auto space-y-8 pb-20">
+        <div className="p-8 max-w-5xl mx-auto space-y-8 pb-20 w-full">
             {/* Header */}
             <div>
-                <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Governance & Settings</h1>
-                <p className="text-slate-500">Manage lifecycle, team permissions, and audit trails for <strong className="text-white">{project.project_name}</strong>.</p>
+                <h1 className="text-2xl font-bold text-[var(--foreground)]">Governance & Settings</h1>
+                <p className="text-[color:color-mix(in_oklab,var(--foreground)_60%,transparent)]">
+                    Manage lifecycle, team permissions, and audit trails for <strong className="text-[var(--foreground)]">{project.project_name}</strong>.
+                </p>
             </div>
 
             {/* 1. LIFECYCLE ENGINE */}
-            <section className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8">
+            <section className="bg-[var(--surface-bg)] border border-[color:color-mix(in_oklab,var(--foreground)_14%,transparent)] rounded-2xl p-8 shadow-sm">
                 <div className="flex items-center gap-3 mb-6">
-                    <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-500">
+                    <div className="p-2 bg-[color:color-mix(in_oklab,var(--accent-color)_10%,transparent)] rounded-lg text-[var(--accent-color)]">
                         <ShieldAlert className="w-5 h-5" />
                     </div>
-                    <h2 className="text-lg font-bold text-slate-900 dark:text-white">Project Lifecycle</h2>
+                    <h2 className="text-lg font-bold text-[var(--foreground)]">Project Lifecycle</h2>
                 </div>
 
                 <div className="relative flex justify-between items-center mb-8">
-                    <div className="absolute top-5 left-0 right-0 h-0.5 bg-slate-200 dark:bg-slate-800 -z-0" />
+                    <div className="absolute top-5 left-0 right-0 h-0.5 bg-[color:color-mix(in_oklab,var(--foreground)_10%,transparent)] -z-0" />
                     {steps.map((step, idx) => {
                         const isActive = idx === currentStepIndex;
                         const isCompleted = idx < currentStepIndex;
@@ -258,15 +245,15 @@ export default function ProjectGovernancePage() {
                             >
                                 <div className={cn(
                                     "w-10 h-10 rounded-full flex items-center justify-center border-4 transition-all duration-300",
-                                    isActive ? "bg-indigo-600 border-indigo-100 dark:border-indigo-900 text-white scale-110 shadow-xl shadow-indigo-500/20" :
-                                    isCompleted ? "bg-emerald-500 border-slate-50 dark:border-slate-900 text-white" :
-                                    "bg-slate-100 dark:bg-slate-800 border-slate-50 dark:border-slate-900 text-slate-400 group-hover:border-slate-300"
+                                    isActive ? "bg-[var(--accent-color)] border-[color:color-mix(in_oklab,var(--accent-color)_20%,transparent)] text-white scale-110 shadow-xl" :
+                                    isCompleted ? "bg-emerald-500 border-[var(--surface-bg)] text-white" :
+                                    "bg-[color:color-mix(in_oklab,var(--foreground)_6%,transparent)] border-[var(--surface-bg)] text-[color:color-mix(in_oklab,var(--foreground)_40%,transparent)] group-hover:border-[color:color-mix(in_oklab,var(--foreground)_14%,transparent)]"
                                 )}>
                                     {isCompleted ? <CheckCircle2 className="w-5 h-5" /> : <Circle className="w-4 h-4 fill-current" />}
                                 </div>
                                 <div className="mt-3 text-center">
-                                    <div className={cn("text-sm font-bold transition-colors", isActive ? "text-indigo-500" : "text-slate-500")}>{step.label}</div>
-                                    <div className="text-[10px] text-slate-400 font-mono mt-0.5">{step.desc}</div>
+                                    <div className={cn("text-sm font-bold transition-colors", isActive ? "text-[var(--accent-color)]" : "text-[color:color-mix(in_oklab,var(--foreground)_60%,transparent)]")}>{step.label}</div>
+                                    <div className="text-[10px] text-[color:color-mix(in_oklab,var(--foreground)_40%,transparent)] font-mono mt-0.5">{step.desc}</div>
                                 </div>
                             </button>
                         )
@@ -277,23 +264,22 @@ export default function ProjectGovernancePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 
                 {/* 2. TEAM ROSTER */}
-                <section className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 h-full flex flex-col">
+                <section className="bg-[var(--surface-bg)] border border-[color:color-mix(in_oklab,var(--foreground)_14%,transparent)] rounded-2xl p-6 h-full flex flex-col shadow-sm">
                     <div className="flex items-center gap-3 mb-6">
                         <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-500">
                             <Users className="w-5 h-5" />
                         </div>
-                        <h2 className="text-lg font-bold text-slate-900 dark:text-white">Project Team</h2>
+                        <h2 className="text-lg font-bold text-[var(--foreground)]">Project Team</h2>
                     </div>
 
                     <div className="space-y-6 flex-1">
-                        {/* Lead */}
                         <div>
-                            <label className="text-xs font-bold uppercase text-slate-500 mb-2 block">Project Lead</label>
+                            <label className="text-xs font-bold uppercase text-[color:color-mix(in_oklab,var(--foreground)_50%,transparent)] mb-2 block">Project Lead</label>
                             <div className="relative">
                                 <select 
                                     value={project.assignee_id || ""}
                                     onChange={(e) => assignLead(e.target.value)}
-                                    className="w-full appearance-none bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm rounded-xl px-4 py-3 pr-8 focus:ring-2 focus:ring-emerald-500 outline-none"
+                                    className="w-full appearance-none bg-[var(--input-bg)] border border-[color:color-mix(in_oklab,var(--foreground)_14%,transparent)] text-[var(--foreground)] text-sm rounded-xl px-4 py-3 pr-8 focus:ring-2 focus:ring-emerald-500 outline-none"
                                 >
                                     <option value="" disabled>Select a lead...</option>
                                     {allUsers.map(u => (
@@ -302,30 +288,28 @@ export default function ProjectGovernancePage() {
                                         </option>
                                     ))}
                                 </select>
-                                <User className="absolute right-3 top-3.5 w-4 h-4 text-slate-400 pointer-events-none" />
+                                <User className="absolute right-3 top-3.5 w-4 h-4 text-[color:color-mix(in_oklab,var(--foreground)_40%,transparent)] pointer-events-none" />
                             </div>
                         </div>
 
-                        {/* Collaborators List */}
                         <div>
                             <div className="flex items-center justify-between mb-3">
-                                <label className="text-xs font-bold uppercase text-slate-500">Collaborators</label>
+                                <label className="text-xs font-bold uppercase text-[color:color-mix(in_oklab,var(--foreground)_50%,transparent)]">Collaborators</label>
                                 <button 
                                     onClick={() => setIsAddingCollab(!isAddingCollab)}
-                                    className="text-xs font-bold text-indigo-600 hover:text-indigo-500 flex items-center gap-1"
+                                    className="text-xs font-bold text-[var(--accent-color)] hover:brightness-110 flex items-center gap-1"
                                 >
                                     {isAddingCollab ? <X className="w-3 h-3"/> : <Plus className="w-3 h-3"/>}
                                     {isAddingCollab ? "Cancel" : "Add Member"}
                                 </button>
                             </div>
 
-                            {/* Add Member Dropdown */}
                             {isAddingCollab && (
                                 <div className="mb-3 animate-in fade-in slide-in-from-top-2">
                                     <select 
                                         onChange={(e) => addCollaborator(e.target.value)}
                                         value=""
-                                        className="w-full bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-900/50 text-sm rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
+                                        className="w-full bg-[var(--input-bg)] border border-[var(--accent-color)] text-[var(--foreground)] text-sm rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-[var(--accent-color)]"
                                     >
                                         <option value="" disabled>Select user to add...</option>
                                         {availableUsers.map(u => (
@@ -337,29 +321,28 @@ export default function ProjectGovernancePage() {
                                 </div>
                             )}
 
-                            {/* List */}
                             <div className="space-y-2">
                                 {collaborators.length === 0 && !isAddingCollab && (
-                                    <div className="text-sm text-slate-400 italic p-3 bg-white dark:bg-slate-800/50 rounded-lg text-center border border-dashed border-slate-200 dark:border-slate-800">
+                                    <div className="text-sm text-[color:color-mix(in_oklab,var(--foreground)_40%,transparent)] italic p-3 bg-[color:color-mix(in_oklab,var(--foreground)_2%,transparent)] rounded-lg text-center border border-dashed border-[color:color-mix(in_oklab,var(--foreground)_14%,transparent)]">
                                         No additional collaborators.
                                     </div>
                                 )}
                                 {collaborators.map(c => (
-                                    <div key={c.id} className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700/50 shadow-sm">
+                                    <div key={c.id} className="flex items-center justify-between p-3 bg-[color:color-mix(in_oklab,var(--foreground)_2%,transparent)] rounded-lg border border-[color:color-mix(in_oklab,var(--foreground)_10%,transparent)] shadow-sm">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-500">
+                                            <div className="w-8 h-8 rounded-full bg-[color:color-mix(in_oklab,var(--foreground)_10%,transparent)] flex items-center justify-center text-xs font-bold text-[color:color-mix(in_oklab,var(--foreground)_60%,transparent)]">
                                                 {c.user?.first_name?.[0]}{c.user?.last_name?.[0]}
                                             </div>
                                             <div>
-                                                <div className="text-sm font-medium text-slate-900 dark:text-white">
+                                                <div className="text-sm font-medium text-[var(--foreground)]">
                                                     {c.user?.first_name} {c.user?.last_name}
                                                 </div>
-                                                <div className="text-[10px] text-slate-500 uppercase">{c.role}</div>
+                                                <div className="text-[10px] text-[color:color-mix(in_oklab,var(--foreground)_50%,transparent)] uppercase">{c.role}</div>
                                             </div>
                                         </div>
                                         <button 
                                             onClick={() => removeCollaborator(c.user_id)}
-                                            className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-md transition-colors"
+                                            className="p-1.5 text-[color:color-mix(in_oklab,var(--foreground)_40%,transparent)] hover:text-rose-500 hover:bg-rose-500/10 rounded-md transition-colors"
                                         >
                                             <Trash2 className="w-4 h-4" />
                                         </button>
@@ -371,24 +354,24 @@ export default function ProjectGovernancePage() {
                 </section>
 
                 {/* 3. AUDIT LOG */}
-                <section className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 h-full">
+                <section className="bg-[var(--surface-bg)] border border-[color:color-mix(in_oklab,var(--foreground)_14%,transparent)] rounded-2xl p-6 h-full shadow-sm">
                     <div className="flex items-center gap-3 mb-6">
                         <div className="p-2 bg-blue-500/10 rounded-lg text-blue-500">
                             <History className="w-5 h-5" />
                         </div>
-                        <h2 className="text-lg font-bold text-slate-900 dark:text-white">Activity Log</h2>
+                        <h2 className="text-lg font-bold text-[var(--foreground)]">Activity Log</h2>
                     </div>
 
-                    <div className="relative border-l border-slate-200 dark:border-slate-800 ml-2 space-y-6">
+                    <div className="relative border-l border-[color:color-mix(in_oklab,var(--foreground)_14%,transparent)] ml-2 space-y-6">
                         {logs.length === 0 ? (
-                            <div className="pl-6 text-sm text-slate-500">No activity recorded yet.</div>
+                            <div className="pl-6 text-sm text-[color:color-mix(in_oklab,var(--foreground)_50%,transparent)]">No activity recorded yet.</div>
                         ) : logs.map((log) => (
                             <div key={log.id} className="relative pl-6">
-                                <div className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-600 border-2 border-slate-50 dark:border-slate-900" />
-                                <div className="text-sm font-medium text-slate-900 dark:text-white">
+                                <div className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-[color:color-mix(in_oklab,var(--foreground)_30%,transparent)] border-2 border-[var(--surface-bg)]" />
+                                <div className="text-sm font-medium text-[var(--foreground)]">
                                     <span className="font-bold">{log.profiles?.first_name || 'User'}</span> {formatLogAction(log.action_type)}
                                 </div>
-                                <div className="text-xs text-slate-500 mt-0.5 font-mono">
+                                <div className="text-xs text-[color:color-mix(in_oklab,var(--foreground)_50%,transparent)] mt-0.5 font-mono">
                                     {new Date(log.created_at).toLocaleString()}
                                 </div>
                             </div>

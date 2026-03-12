@@ -30,7 +30,6 @@ export default function ProjectDashboardPage() {
     );
   }
 
-  // Handle case where no simulation exists
   if (!results) {
     return (
       <div className="flex flex-col items-center justify-center h-[65vh] text-center space-y-4">
@@ -58,7 +57,6 @@ export default function ProjectDashboardPage() {
     );
   }
 
-  // Safe data access
   const yearlyData = results.yearly_data || [];
   const startYear = yearlyData[0]?.year;
   const endYear = yearlyData[yearlyData.length - 1]?.year;
@@ -70,56 +68,52 @@ export default function ProjectDashboardPage() {
       <header className="flex flex-col gap-4 border-b border-slate-200 dark:border-slate-800 pb-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
+            {/* UPDATED: Navigates back to the global list of dashboards */}
             <Link
-              href={`/projects/${projectId}/config`}
-              className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-indigo-600 mb-2 transition-colors"
+              href="/dashboard"
+              className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-[color:color-mix(in_oklab,var(--foreground)_50%,transparent)] hover:text-[var(--accent-color)] mb-3 transition-colors"
             >
-              <ArrowLeft className="w-3 h-3" /> Back to Inputs
+              <ArrowLeft className="w-3.5 h-3.5" /> Back to Dashboards List
             </Link>
 
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-slate-100">
+            <h1 className="text-2xl md:text-3xl font-bold text-[var(--foreground)]">
               {project?.project_name || "Project"} Strategy
             </h1>
 
-            <p className="text-sm text-slate-500 flex items-center gap-2 mt-1">
+            <p className="text-sm text-[color:color-mix(in_oklab,var(--foreground)_60%,transparent)] font-medium flex items-center gap-2 mt-1">
               {results.year_count}-Year Forecast {startYear && endYear ? `(${startYear} - ${endYear})` : ""}
             </p>
           </div>
 
-          {/* Primary Action: Compile Report */}
           <Link
-            href="/reports" // Direct link to the Report Builder module
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-lg shadow-indigo-500/20"
+            href="/reports"
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-[var(--accent-color)] hover:brightness-110 rounded-lg transition-colors shadow-lg shadow-indigo-500/20"
           >
             <FileCheck className="w-4 h-4" />
             Compile Report
           </Link>
         </div>
 
-        {/* Secondary Actions Row */}
         <div className="flex flex-wrap gap-2">
-          {/* AI Advisor Button */}
           <Link
             href={`/projects/${projectId}/advisor`}
-            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors group"
+            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg border border-[color:color-mix(in_oklab,var(--foreground)_14%,transparent)] bg-[var(--surface-bg)] hover:bg-[color:color-mix(in_oklab,var(--foreground)_4%,transparent)] text-[var(--foreground)] transition-colors group"
           >
             <Sparkles className="w-3.5 h-3.5 text-indigo-500 group-hover:text-indigo-600" />
             AI Advisor Insights
           </Link>
 
-          {/* History Button (Opens the local history page/panel) */}
           <Link
             href={`/projects/${projectId}/dashboard/history`}
-            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
+            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg border border-[color:color-mix(in_oklab,var(--foreground)_14%,transparent)] bg-[var(--surface-bg)] hover:bg-[color:color-mix(in_oklab,var(--foreground)_4%,transparent)] text-[var(--foreground)] transition-colors"
           >
-            <History className="w-3.5 h-3.5 text-slate-500" />
+            <History className="w-3.5 h-3.5 text-[color:color-mix(in_oklab,var(--foreground)_50%,transparent)]" />
             Simulation History
           </Link>
 
-          {/* Boardroom View Button */}
           <Link
             href="/presentationmode"
-            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
+            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg border border-[color:color-mix(in_oklab,var(--foreground)_14%,transparent)] bg-[var(--surface-bg)] hover:bg-[color:color-mix(in_oklab,var(--foreground)_4%,transparent)] text-[var(--foreground)] transition-colors"
           >
             <Presentation className="w-3.5 h-3.5 text-emerald-500" />
             Boardroom View
@@ -128,7 +122,6 @@ export default function ProjectDashboardPage() {
       </header>
 
       {/* MAIN DASHBOARD PANEL */}
-      {/* Passing data down - logic inside handles display */}
       <DashboardMainPanel
         projectId={projectId}
         snapshot={snapshot}
